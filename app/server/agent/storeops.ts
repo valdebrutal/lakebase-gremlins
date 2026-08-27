@@ -45,6 +45,14 @@ import * as mlflow from 'mlflow-tracing';
 import { z } from 'zod';
 import { authHeaders } from '../lib/auth.js';
 import type { AppDb } from '../db/index.js';
+import {
+  getShortfall,
+  worstShortfall,
+  getPosition,
+  getRecommendation,
+  searchProducts,
+  recordRecoveryAction,
+} from '../db/queries/stores.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -145,11 +153,36 @@ function makeTools(ctx: AgentContext): Tool[] {
         .nullable()
         .describe('SKU, e.g. SKU-APP-04412. Null → return the worst open shortfall.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ store_id, product_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const sf =
+            store_id && product_id
+              ? await getShortfall(ctx.db, store_id, product_id)
+              : await worstShortfall(ctx.db);
+          if (!sf) return { found: false };
+          const pos = await getPosition(ctx.db, `${sf.storeId}:${sf.productId}`);
+          return {
+            found: true,
+            store_id: sf.storeId,
+            product_id: sf.productId,
+            store_name: pos?.storeName ?? null,
+            city: pos?.city ?? null,
+            on_hand_units: sf.onHandUnits,
+            avg_daily_velocity: sf.avgDailyVelocity,
+            weeks_of_supply: pos?.weeksOfSupply ?? null,
+            lost_sales_exposure_usd: sf.lostSalesExposureUsd,
+            nearest_surplus_store_id: sf.nearestSurplusStoreId,
+            nearest_surplus_on_hand: sf.nearestSurplusOnHand,
+            nearest_surplus_distance_km: sf.nearestSurplusDistanceKm,
+          };
+        },
+        {
+          name: 'find_shortfall',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { store_id, product_id },
+        },
+      ),
   });
 
   // ── rank_recovery_moves — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
@@ -169,11 +202,61 @@ function makeTools(ctx: AgentContext): Tool[] {
       store_id: z.string().describe('Store id, e.g. STORE-0214.'),
       product_id: z.string().describe('SKU, e.g. SKU-APP-04412.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ store_id, product_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const rec = await getRecommendation(ctx.db, store_id, product_id);
+          if (!rec) {
+            return {
+              scored: false,
+              note: 'No recovery recommendation yet — build + score the recovery_recommender model (Build 2 ML step), then reset the demo.',
+            };
+          }
+          return {
+            store_id: rec.storeId,
+            product_id: rec.productId,
+            recommended_move: rec.recommendedMove,
+            recommended_source_store_id: rec.recommendedSourceStoreId,
+            recommended_units: rec.recommendedUnits,
+            predicted_recaptured_usd: rec.predictedRecapturedUsd,
+            predicted_net_value_usd: rec.predictedNetValueUsd,
+            move_ranking: rec.moveRanking,
+          };
+        },
+        {
+          name: 'rank_recovery_moves',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { store_id, product_id },
+        },
+      ),
+  });
+
+  // ── search_products — Lakebase Search (Build 2c). Full-text product search
+  // over app.products; used when ranking the SUBSTITUTE recovery option.
+  const searchProductsTool = tool({
+    name: 'search_products',
+    description:
+      'Full-text search the Lakebase product catalog for substitute candidates by a descriptive query (e.g. "warm insulated jacket similar to Summit Down Parka"). Returns the top in-stock matches with price and on-hand units. Use when ranking the substitute recovery option.',
+    parameters: z.object({
+      query: z
+        .string()
+        .describe('A descriptive product search query, e.g. "warm insulated jacket".'),
+    }),
+    execute: async ({ query }) =>
+      mlflow.withSpan(
+        async () => {
+          const matches = await searchProducts(ctx.db, query);
+          if (!matches.length) {
+            return { matches_found: false, note: 'No comparable products found.' };
+          }
+          return { matches_found: true, candidates: matches };
+        },
+        {
+          name: 'search_products',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { query },
+        },
+      ),
   });
 
   // ── execute_recovery_action — TRAINEE BUILDS (Build 3 · Act). STUB. ───────
@@ -210,18 +293,56 @@ function makeTools(ctx: AgentContext): Tool[] {
         .number()
         .describe('Predicted recaptured revenue for this move (from rank_recovery_moves).'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2/3 Assist/Act task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({
+      store_id,
+      product_id,
+      move_type,
+      units,
+      source_store_id,
+      drafted_request,
+      predicted_recaptured_usd,
+    }) =>
+      mlflow.withSpan(
+        async () => {
+          const { actionId, markdownHoldId } = await recordRecoveryAction(ctx.db, {
+            storeId: store_id,
+            productId: product_id,
+            moveType: move_type,
+            units,
+            sourceStoreId: source_store_id,
+            draftedRequest: drafted_request,
+            predictedRecapturedUsd: predicted_recaptured_usd,
+            userEmail: ctx.userEmail,
+          });
+          return {
+            recorded: true,
+            action_id: actionId,
+            store_id,
+            product_id,
+            move_type,
+            units,
+            source_store_id,
+            predicted_recaptured_usd,
+            markdown_hold: markdownHoldId !== null,
+          };
+        },
+        {
+          name: 'execute_recovery_action',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { store_id, product_id, move_type, units },
+        },
+      ),
   });
 
-  // find_shortfall / rank_recovery_moves / execute_recovery_action are
-  // registered so the MODEL knows they exist (and the trainee sees them in
-  // the tool list) — they throw until implemented. ask_data is registered
-  // only when a backend is configured.
-  const tools: Tool[] = [findShortfall, rankRecoveryMoves, executeRecoveryAction];
+  // find_shortfall / rank_recovery_moves / search_products / execute_recovery_action
+  // read/write Lakebase directly. ask_data is registered only when a backend
+  // (MAS or Genie) is configured.
+  const tools: Tool[] = [
+    findShortfall,
+    rankRecoveryMoves,
+    searchProductsTool,
+    executeRecoveryAction,
+  ];
   if (ctx.masEndpointName || ctx.genieSpaceId) {
     tools.unshift(askData);
   }

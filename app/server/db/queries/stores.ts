@@ -452,6 +452,218 @@ export async function listActionsForPosition(
 }
 
 // ============================================================================
+// Act (Build 3): the human-in-the-loop WRITE to app.ops_actions, plus the
+// workflow_events observability log. All writes go to the WRITABLE Postgres
+// tables — never the read-only synced mirrors.
+// ============================================================================
+
+export type RecordRecoveryActionArgs = {
+  storeId: string;
+  productId: string;
+  moveType: 'transfer' | 'expedite' | 'substitute';
+  units: number;
+  sourceStoreId: string | null;
+  draftedRequest: string;
+  predictedRecapturedUsd: number;
+  userEmail: string;
+};
+
+/**
+ * Record an approved recovery move. Filter-driven + transactional
+ * (TEMPLATE_MAP pattern #5): inputs are a FILTER + drafted text, never a list
+ * of ids. Writes the approved action, a paired markdown-hold on the source
+ * surplus for a transfer, and a `decision_committed` workflow event — all in
+ * one transaction so the closed loop commits atomically.
+ */
+export async function recordRecoveryAction(
+  db: AppDb,
+  args: RecordRecoveryActionArgs,
+): Promise<{ actionId: string; markdownHoldId: string | null }> {
+  const now = new Date().toISOString();
+  return db.transaction(async (tx) => {
+    const primaryAudit = [
+      {
+        at: now,
+        by: args.userEmail,
+        action: 'approved',
+        notes: 'Recovery move recorded',
+        tool: 'execute_recovery_action',
+      },
+    ];
+    const ins = await tx.execute(sql`
+      INSERT INTO app.ops_actions
+        (store_id, product_id, move_type, source_store_id, units, drafted_request,
+         predicted_recaptured_usd, status, approved_by, audit_trail, decided_at)
+      VALUES (${args.storeId}, ${args.productId}, ${args.moveType}, ${args.sourceStoreId},
+              ${args.units}, ${args.draftedRequest}, ${args.predictedRecapturedUsd},
+              'approved', ${args.userEmail}, ${JSON.stringify(primaryAudit)}::jsonb, now())
+      RETURNING id
+    `);
+    const actionId = (ins.rows[0] as { id: string }).id;
+
+    let markdownHoldId: string | null = null;
+    if (args.moveType === 'transfer' && args.sourceStoreId) {
+      const holdNote = `Markdown hold on surplus feeding ${args.storeId} transfer`;
+      const holdAudit = [
+        {
+          at: now,
+          by: args.userEmail,
+          action: 'markdown_hold',
+          notes: holdNote,
+          tool: 'execute_recovery_action',
+        },
+      ];
+      const h = await tx.execute(sql`
+        INSERT INTO app.ops_actions
+          (store_id, product_id, move_type, source_store_id, units, drafted_request,
+           predicted_recaptured_usd, status, approved_by, audit_trail, decided_at)
+        VALUES (${args.sourceStoreId}, ${args.productId}, 'markdown_hold', ${args.storeId}, 0,
+                ${holdNote}, 0, 'approved', ${args.userEmail},
+                ${JSON.stringify(holdAudit)}::jsonb, now())
+        RETURNING id
+      `);
+      markdownHoldId = (h.rows[0] as { id: string }).id;
+    }
+
+    await tx.execute(sql`
+      INSERT INTO app.workflow_events
+        (event_type, source, store_id, product_id, action_id, payload)
+      VALUES ('decision_committed', 'user', ${args.storeId}, ${args.productId}, ${actionId},
+              ${JSON.stringify({
+                move_type: args.moveType,
+                units: args.units,
+                source_store_id: args.sourceStoreId,
+                predicted_recaptured_usd: args.predictedRecapturedUsd,
+                approved_by: args.userEmail,
+                markdown_hold_id: markdownHoldId,
+              })}::jsonb)
+    `);
+
+    return { actionId, markdownHoldId };
+  });
+}
+
+/** Append a workflow/observability event (e.g. the scheduled view-scoring
+ *  trigger). Timestamped by the DB default. */
+export async function logWorkflowEvent(
+  db: AppDb,
+  ev: {
+    eventType: 'view_scored' | 'decision_committed';
+    source: 'schedule' | 'system' | 'user';
+    storeId?: string | null;
+    productId?: string | null;
+    actionId?: string | null;
+    payload?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO app.workflow_events
+      (event_type, source, store_id, product_id, action_id, payload)
+    VALUES (${ev.eventType}, ${ev.source}, ${ev.storeId ?? null}, ${ev.productId ?? null},
+            ${ev.actionId ?? null}, ${JSON.stringify(ev.payload ?? {})}::jsonb)
+  `);
+}
+
+// ============================================================================
+// Lakebase Search (Build 2c): full-text product search over app.products.
+// `ensureProductsIndex` builds the FTS-indexed catalog from the synced
+// position mirror; `searchProducts` queries it with websearch_to_tsquery.
+// ============================================================================
+
+export type ProductMatch = {
+  product_id: string;
+  product_name: string | null;
+  category: string | null;
+  price_usd: number | null;
+  on_hand_units: number;
+};
+
+/** Build/refresh app.products (product catalog + tsvector FTS index) from the
+ *  synced position mirror. Idempotent; returns the row count. */
+export async function ensureProductsIndex(db: AppDb): Promise<number> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS app.products (
+      product_id text PRIMARY KEY,
+      product_name text,
+      category text,
+      seasonality text,
+      price_usd double precision,
+      description text,
+      search_tsv tsvector
+    )
+  `);
+  await db.execute(sql`
+    INSERT INTO app.products
+      (product_id, product_name, category, seasonality, price_usd, description)
+    SELECT DISTINCT ON (product_id)
+      product_id, product_name, category, seasonality, price_usd,
+      concat_ws(' ',
+        product_name, category, seasonality,
+        CASE
+          WHEN lower(coalesce(seasonality, '')) LIKE '%winter%'
+            OR lower(coalesce(category, '')) LIKE '%outerwear%'
+            OR lower(coalesce(product_name, '')) LIKE '%parka%'
+            OR lower(coalesce(product_name, '')) LIKE '%jacket%'
+            OR lower(coalesce(product_name, '')) LIKE '%fleece%'
+            OR lower(coalesce(product_name, '')) LIKE '%hoodie%'
+            OR lower(coalesce(product_name, '')) LIKE '%coat%'
+          THEN 'warm insulated cold-weather layer for winter warmth'
+          ELSE 'apparel'
+        END
+      )
+    FROM app.store_sku_position
+    WHERE product_id IS NOT NULL
+    ON CONFLICT (product_id) DO UPDATE SET
+      product_name = EXCLUDED.product_name,
+      category = EXCLUDED.category,
+      seasonality = EXCLUDED.seasonality,
+      price_usd = EXCLUDED.price_usd,
+      description = EXCLUDED.description
+  `);
+  await db.execute(sql`
+    UPDATE app.products
+    SET search_tsv =
+      to_tsvector('english', coalesce(product_name, '') || ' ' || coalesce(description, ''))
+  `);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS products_search_idx ON app.products USING GIN (search_tsv)
+  `);
+  const c = await db.execute(sql`SELECT count(*)::int AS n FROM app.products`);
+  return (c.rows[0] as { n: number }).n;
+}
+
+/** Hybrid-ready full-text search over the Lakebase product catalog. Ranks by
+ *  ts_rank and joins the latest on-hand from the position mirror. */
+export async function searchProducts(db: AppDb, query: string): Promise<ProductMatch[]> {
+  const res = await db.execute(sql`
+    SELECT p.product_id, p.product_name, p.category, p.price_usd,
+           COALESCE(MAX(s.on_hand_units), 0)::int AS on_hand_units,
+           ts_rank(p.search_tsv, websearch_to_tsquery('english', ${query})) AS rank
+    FROM app.products p
+    LEFT JOIN app.store_sku_position s ON s.product_id = p.product_id
+    WHERE p.search_tsv @@ websearch_to_tsquery('english', ${query})
+    GROUP BY p.product_id, p.product_name, p.category, p.price_usd, p.search_tsv
+    ORDER BY rank DESC
+    LIMIT 10
+  `);
+  return (
+    res.rows as Array<{
+      product_id: string;
+      product_name: string | null;
+      category: string | null;
+      price_usd: number | string | null;
+      on_hand_units: number | string;
+    }>
+  ).map((r) => ({
+    product_id: r.product_id,
+    product_name: r.product_name,
+    category: r.category,
+    price_usd: num(r.price_usd),
+    on_hand_units: Number(r.on_hand_units),
+  }));
+}
+
+// ============================================================================
 // KPI summary for the Operations header.
 // ============================================================================
 
