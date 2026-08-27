@@ -1,3 +1,11 @@
+## NorthPeak Retail — Lakebase Branch Use Cases (Both Required by Submission)
+## Updated: 2026-08-27
+## Project: projects/northpeak-retail
+
+================================================================================
+BRANCH USE CASE 1: DEVELOPMENT ITERATION (dev-otto)
+================================================================================
+
 Lakebase Dev Branch: dev-otto
 Parent Branch: projects/northpeak-retail/branches/production
 Branch Resource Path: projects/northpeak-retail/branches/dev-otto
@@ -7,6 +15,11 @@ Endpoint Host: ep-wispy-heart-d2j2kjyj.database.us-east-1.cloud.databricks.com
 TTL: 604800s (7 days, expires 2026-09-03T12:24:53Z)
 Created: 2026-08-27T12:24:53Z
 State: READY (copy-on-write snapshot from production at LSN 0/1CC35A8)
+
+Use case: DEVELOPMENT ITERATION
+  — Long-lived branch (7 days) for iterating on schema migrations before promotion.
+  — Migration 001 (add priority INT column) was developed and validated here first,
+    then promoted to production.
 
 What was done on dev-otto branch:
 1. Schema northpeak was inherited from production (copy-on-write)
@@ -18,3 +31,41 @@ What was done on dev-otto branch:
 3. Validated migration (query confirmed priority col with correct values P1-P3)
 4. PROMOTED: same migration applied on production branch afterward
    (see agent_change/001_add_priority_to_replenishment_actions.sql)
+
+================================================================================
+BRANCH USE CASE 2: THROWAWAY FORECASTING (forecast-2x-demand)
+================================================================================
+
+Lakebase Forecast Branch: forecast-2x-demand
+Parent Branch: projects/northpeak-retail/branches/production
+Branch Resource Path: projects/northpeak-retail/branches/forecast-2x-demand
+Branch UID: br-sparkling-feather-d25k7a98
+Endpoint: projects/northpeak-retail/branches/forecast-2x-demand/endpoints/primary
+Endpoint Host: ep-flat-scene-d2ectasz.database.us-east-1.cloud.databricks.com
+TTL: 7200s (2 HOURS — throwaway, expires 2026-08-27T15:48:09Z)
+Created: 2026-08-27T13:48:09Z
+State: READY (copy-on-write snapshot from production at LSN 0/75E7C70)
+
+Use case: THROWAWAY FORECASTING SCENARIO
+  — Short-lived branch (2 hours) created solely for an isolated what-if analysis.
+  — Represents a demand-spike forecast that MUST NOT affect production data.
+  — Branch is discarded automatically at TTL expiry.
+
+What was done on forecast-2x-demand branch:
+1. Branch created from production with 7200s TTL (2h = short-lived throwaway)
+2. Forecasting query run in isolation (see forecasting_branch.json for full output):
+   - Scenario: "What if demand for SKU-APP-04412 doubled?" (2x demand spike)
+   - Query: SELECT store_id, ..., lost_sales_exposure_usd AS current_exposure,
+            ROUND(lost_sales_exposure_usd * 2, 2) AS forecast_2x_exposure
+            FROM public.gold_open_shortfalls
+            WHERE product_id = 'SKU-APP-04412'
+            ORDER BY forecast_2x_exposure DESC LIMIT 10
+   - Result: 10 stores, top exposure STORE-0034 at $153,668 (2x of $76,834)
+3. Production verified unaffected: forecasting query ran on the branch only.
+4. Branch expires automatically at 2026-08-27T15:48:09Z — no cleanup needed.
+
+KEY DISTINCTION between the two branch types:
+  dev-otto            → 7-day TTL, development iteration, migration development + validation
+  forecast-2x-demand  → 2-hour TTL, throwaway forecasting, isolated what-if analysis
+
+Both use cases are documented in forecasting_branch.json (new evidence file, 2026-08-27).

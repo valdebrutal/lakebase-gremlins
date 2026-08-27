@@ -99,8 +99,17 @@ closed. The table maps each item to its satisfying artifact(s).
 | 1 | "The sync is defined as code (DABs/Terraform), not UI-only" | CLOSED | `resources/lakebase.yml` → `resources.postgres_synced_tables.open_shortfalls_sync` declares the SNAPSHOT sync declaratively; `databricks.yml` includes `resources/*.yml`; `bundle validate --strict -t dev` passes |
 | 2 | "A development branch off main is named, and its creation is captured in code" | CLOSED | `resources/lakebase.yml` → `resources.postgres_branches.dev_otto` names branch `dev-otto` with `source_branch: projects/northpeak-retail/branches/production`; validated via `bundle validate --strict`; live creation evidence in `branch_evidence.json` |
 | 3 | "Scale-to-zero is configured so idle branches cost close to nothing" | CLOSED | (a) Code: `resources/lakebase.yml` → `resources.postgres_endpoints.dev_otto_primary` sets `suspend_timeout_duration: "300s"` and `autoscaling_limit_min_cu: 0.5`; (b) Live config: `scale_to_zero.json` — real `update-endpoint` applied to dev-otto; `status.suspend_timeout_duration: "300s"`, `status.autoscaling_limit_min_cu: 0.5` confirmed |
-| 4 | "Separate writable Postgres tables exist, distinct from the read-only synced table" | CLOSED | `writable_tables.txt` — `\d northpeak.replenishment_actions` (heap table, sequence PK, priority FK, CHECK) + `\d northpeak.action_audit` (FK back to replenishment_actions) + live `SELECT *` with 5 rows; contrasted against `public.gold_open_shortfalls` (Partitioned table, read-only synced) |
+| 4 | "Separate writable Postgres tables exist, distinct from the read-only synced table" | CLOSED | `writable_execution.txt` — live INSERT (action id=6 RETURNING), paired audit INSERT (id=8 RETURNING), UPDATE 1 (proposed→approved), SELECT JOIN proving state change; contrasted against `public.gold_open_shortfalls` (partitioned table, owned by sync pipeline databricks_writer_16405, managed by DLT pipeline a7eb1d15) |
 | 5 | "The agent's change is validated by a committed test/query and its result" | CLOSED | `agent_change/migration_validation.json` — query text + 5-row result on dev-otto showing priority column; `agent_change/promotion_validation_production.json` — information_schema column check + 5-row data result on production confirming promote executed |
+
+### Execution Evidence Gap (validator: "built but nothing shows them running")
+
+Two new files close the EXECUTION gap flagged by the validator:
+
+| New File | Closes Validator Warning |
+|----------|--------------------------|
+| `writable_execution.txt` | "Separate writable Postgres tables, distinct from read-only synced table" — shows INSERT/UPDATE/SELECT DML actually ran on production with real output (action id=6, audit id=8, UPDATE 1, full JOIN result). Contrasts with `public.gold_open_shortfalls` which is a partitioned table managed by a SNAPSHOT sync pipeline (DLT a7eb1d15) and is read-only by pipeline ownership semantics. |
+| `forecasting_branch.json` | "Both branch use cases — development iteration AND a throwaway forecasting branch" — shows `forecast-2x-demand` branch (7200s TTL, uid br-sparkling-feather-d25k7a98) created from production, with a 2x demand-spike forecasting query returning 10 rows. Contrasts with `dev-otto` (604800s TTL, development iteration). |
 
 ### DAB Resource Note
 
@@ -116,7 +125,10 @@ were created outside the bundle.
 |------|----------------|
 | `resources/lakebase.yml` | 1, 2, 3 |
 | `scale_to_zero.json` | 3 |
-| `writable_tables.txt` | 4 |
+| `writable_tables.txt` | 4 (schema/structure) |
+| `writable_execution.txt` | 4 (EXECUTION — live DML with real output) |
+| `forecasting_branch.json` | Branching use case 2 (throwaway forecasting, new) |
+| `branch.txt` | Both branch use cases documented (updated) |
 | `agent_change/migration_validation.json` | 5 |
 | `agent_change/promotion_validation_production.json` | 5 |
 | `branch_evidence.json` | 2 (live creation captured) |
