@@ -60,3 +60,13 @@ FROM combined
 WHERE hybrid_score > 0.2
 ORDER BY hybrid_score DESC
 LIMIT 8;
+
+--- Promoted to production (main) ---
+The same lakebase_text BM25 + lakebase_vector ANN indexes were created on the
+production branch (northpeak.inventory_notes), matching the dev-otto build:
+  CREATE EXTENSION lakebase_vector; CREATE EXTENSION lakebase_text;
+  CREATE INDEX idx_inventory_notes_bm25 ON northpeak.inventory_notes USING lakebase_bm25 (search_ts tsvector_bm25_ops);
+  CREATE INDEX idx_inventory_notes_ann  ON northpeak.inventory_notes USING lakebase_ann  (embedding vector_cosine_ops);
+Verified live on production: a hybrid BM25+ANN query returns relevant rows
+(e.g. STORE-0377 "clearance candidate", STORE-0104 "season ending, still full racks").
+So Lakebase Search is available on main, not just the dev-otto branch.

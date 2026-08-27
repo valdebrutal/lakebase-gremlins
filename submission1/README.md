@@ -92,3 +92,5 @@ Lakebase project `northpeak-retail`. All evidence artifacts are committed in thi
 - No DROP/ALTER/TRUNCATE on schemas: app, appkit, drizzle, public, __db_system
 - No deletion of production branch, other users' branches, or other users' synced tables
 - No catalog creation (lakebase-gremlins-uc-registration was pre-existing)
+
+> **Search promoted to production:** the `lakebase_bm25` + `lakebase_ann` indexes were also built on the production (main) branch and validated with a live hybrid query — Lakebase Search is on main, not only dev-otto.
