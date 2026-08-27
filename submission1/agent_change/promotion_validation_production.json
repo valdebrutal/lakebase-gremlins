@@ -1,0 +1,39 @@
+{
+  "validation_context": {
+    "branch": "production",
+    "endpoint": "projects/northpeak-retail/branches/production/endpoints/primary",
+    "host": "ep-spring-moon-d266w13l.database.us-east-1.cloud.databricks.com",
+    "database": "databricks_postgres",
+    "schema": "northpeak",
+    "purpose": "Confirm migration 001 (priority column) was successfully promoted from dev-otto to production",
+    "run_date": "2026-08-27"
+  },
+  "schema_check": {
+    "query": "SELECT table_schema, table_name, column_name, data_type, column_default FROM information_schema.columns WHERE table_schema='northpeak' AND table_name='replenishment_actions' AND column_name='priority';",
+    "result": [
+      {
+        "table_schema": "northpeak",
+        "table_name": "replenishment_actions",
+        "column_name": "priority",
+        "data_type": "integer",
+        "column_default": "3"
+      }
+    ],
+    "row_count": 1,
+    "passed": true,
+    "note": "Column priority (integer, default 3) exists in northpeak.replenishment_actions on the production branch — confirms successful promotion."
+  },
+  "data_check": {
+    "query": "SELECT id, store_id, product_id, move_type, predicted_recaptured_usd, priority, status FROM northpeak.replenishment_actions ORDER BY priority, predicted_recaptured_usd DESC;",
+    "result": [
+      {"id": 1, "store_id": "STR-001", "product_id": "SKU-APP-04412", "move_type": "TRANSFER", "predicted_recaptured_usd": 3120.00, "priority": 1, "status": "APPROVED"},
+      {"id": 4, "store_id": "STR-009", "product_id": "SKU-SPT-00187", "move_type": "TRANSFER", "predicted_recaptured_usd": 2340.00, "priority": 1, "status": "DRAFT"},
+      {"id": 2, "store_id": "STR-003", "product_id": "SKU-APP-04412", "move_type": "REORDER", "predicted_recaptured_usd": 1560.00, "priority": 2, "status": "APPROVED"},
+      {"id": 5, "store_id": "STR-011", "product_id": "SKU-CAM-03311", "move_type": "REORDER", "predicted_recaptured_usd": 780.00, "priority": 3, "status": "DRAFT"},
+      {"id": 3, "store_id": "STR-005", "product_id": "SKU-APP-04412", "move_type": "MARKDOWN", "predicted_recaptured_usd": 520.00, "priority": 3, "status": "APPROVED"}
+    ],
+    "row_count": 5,
+    "passed": true,
+    "note": "Priority values on production match the backfill logic defined in migration 001: >=2000->1, >=1000->2, >=500->3. Promotion was applied by re-running the migration SQL on the production endpoint."
+  }
+}

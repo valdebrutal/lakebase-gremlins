@@ -19,6 +19,12 @@
 bundle:
   name: workshop-northpeak-retail
 
+# Include additional resource files — Lakebase postgres resources (branches,
+# synced tables, endpoints) are declared in resources/lakebase.yml so they
+# can be validated-as-code without cluttering the main bundle file.
+include:
+  - resources/*.yml
+
 # Put the deployed materials in an obvious, browsable workspace folder instead
 # of the CLI default (~/.bundle/<name>/<target> — a hidden dotfolder). The
 # trainee reads README.md + specifications/ + data_generation/ here, so it must

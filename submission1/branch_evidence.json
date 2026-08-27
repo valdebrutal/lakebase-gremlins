@@ -1,0 +1,20 @@
+{
+  "branch_id": "dev-otto",
+  "create_time": "2026-08-27T12:24:53Z",
+  "name": "projects/northpeak-retail/branches/dev-otto",
+  "parent": "projects/northpeak-retail",
+  "status": {
+    "branch_id": "dev-otto",
+    "current_state": "READY",
+    "default": false,
+    "expire_time": "2026-09-03T12:24:53Z",
+    "is_protected": false,
+    "logical_size_bytes": 33095680,
+    "source_branch": "projects/northpeak-retail/branches/production",
+    "source_branch_lsn": "0/1CC35A8",
+    "source_branch_time": "2026-08-27T12:24:49Z",
+    "state_change_time": "2026-08-27T12:24:54Z"
+  },
+  "uid": "br-fragrant-cloud-d2miqydy",
+  "update_time": "2026-08-27T12:24:55Z"
+}

@@ -1,0 +1,100 @@
+## NorthPeak Retail — Writable Operational Tables in northpeak schema
+## Evidence run on: production branch (ep-spring-moon-d266w13l.database.us-east-1.cloud.databricks.com)
+## Date: 2026-08-27
+
+## NOTE ON READ-ONLY vs WRITABLE DISTINCTION
+## ──────────────────────────────────────────
+## public.gold_open_shortfalls  ← READ-ONLY synced table (managed by Lakebase sync pipeline;
+##                                 is a Partitioned table; only SELECT/CREATE INDEX allowed;
+##                                 modifications would break the sync)
+##
+## northpeak.replenishment_actions  ← WRITABLE operational table (regular heap table with
+##                                     sequence PK, application DML, FK references, CHECKs)
+## northpeak.action_audit           ← WRITABLE operational table (regular heap table with
+##                                     sequence PK and FK back to replenishment_actions)
+##
+## The writable tables live in schema 'northpeak' and were created by the app's Drizzle
+## migration. The synced table lives in schema 'public' and is managed by the Lakebase
+## reverse-ETL pipeline. They are distinct by schema, table type (heap vs partitioned),
+## and mutability constraints.
+
+
+=== \d northpeak.replenishment_actions ===
+
+                                                 Table "northpeak.replenishment_actions"
+          Column          |           Type           | Collation | Nullable |                           Default
+--------------------------+--------------------------+-----------+----------+-------------------------------------------------------------
+ id                       | integer                  |           | not null | nextval('northpeak.replenishment_actions_id_seq'::regclass)
+ store_id                 | text                     |           | not null |
+ product_id               | text                     |           | not null |
+ move_type                | text                     |           | not null |
+ source_store_id          | text                     |           |          |
+ units                    | integer                  |           | not null | 0
+ draft_note               | text                     |           |          |
+ predicted_recaptured_usd | numeric(12,2)            |           |          |
+ status                   | text                     |           | not null | 'DRAFT'::text
+ approved_by              | text                     |           |          |
+ created_at               | timestamp with time zone |           | not null | now()
+ priority                 | integer                  |           |          | 3
+Indexes:
+    "replenishment_actions_pkey" PRIMARY KEY, btree (id)
+    "idx_replenishment_priority" btree (priority, status, created_at DESC)
+Check constraints:
+    "replenishment_actions_priority_check" CHECK (priority >= 1 AND priority <= 5)
+Referenced by:
+    TABLE "northpeak.action_audit" CONSTRAINT "action_audit_action_id_fkey" FOREIGN KEY (action_id) REFERENCES northpeak.replenishment_actions(id) ON DELETE CASCADE
+
+
+=== \d northpeak.action_audit ===
+
+                                          Table "northpeak.action_audit"
+  Column   |           Type           | Collation | Nullable |                      Default
+-----------+--------------------------+-----------+----------+----------------------------------------------------
+ id        | integer                  |           | not null | nextval('northpeak.action_audit_id_seq'::regclass)
+ action_id | integer                  |           | not null |
+ event     | text                     |           | not null |
+ detail    | text                     |           |          |
+ at        | timestamp with time zone |           | not null | now()
+Indexes:
+    "action_audit_pkey" PRIMARY KEY, btree (id)
+Foreign-key constraints:
+    "action_audit_action_id_fkey" FOREIGN KEY (action_id) REFERENCES northpeak.replenishment_actions(id) ON DELETE CASCADE
+
+
+=== SELECT * FROM northpeak.replenishment_actions LIMIT 5 ===
+(run on production; proves the writable tables exist and contain live data)
+
+ id | store_id |  product_id   | move_type | source_store_id | units |                                draft_note                                | predicted_recaptured_usd |  status  |         approved_by         |          created_at           | priority
+----+----------+---------------+-----------+-----------------+-------+--------------------------------------------------------------------------+--------------------------+----------+-----------------------------+-------------------------------+----------
+  1 | STR-001  | SKU-APP-04412 | TRANSFER  | STR-007         |    24 | Dead stock at STR-007 Summit Down Parka, transfer to high-demand STR-001 |                  3120.00 | APPROVED | ops.manager@northpeak.com   | 2026-08-27 12:23:52.215926+00 |        1
+  3 | STR-005  | SKU-APP-04412 | MARKDOWN  |                 |     8 | Clearance markdown for slow-moving apparel dead stock at STR-005         |                   520.00 | APPROVED | regional.lead@northpeak.com | 2026-08-27 12:23:52.215926+00 |        3
+  4 | STR-009  | SKU-SPT-00187 | TRANSFER  | STR-002         |    18 | Excess trail shoes inventory at STR-002 not selling, reroute to STR-009  |                  2340.00 | DRAFT    |                             | 2026-08-27 12:23:52.215926+00 |        1
+  5 | STR-011  | SKU-CAM-03311 | REORDER   |                 |     6 | Camp stove shortage risk at STR-011 pre-season peak demand               |                   780.00 | DRAFT    |                             | 2026-08-27 12:23:52.215926+00 |        3
+  2 | STR-003  | SKU-APP-04412 | REORDER   |                 |    12 | Summit Down Parka consistently underselling at STR-003 cold region       |                  1560.00 | APPROVED | auto.approver@northpeak.com | 2026-08-27 12:23:52.215926+00 |        2
+(5 rows)
+
+
+=== CONTRAST: \d public.gold_open_shortfalls (READ-ONLY synced table) ===
+
+                 Partitioned table "public.gold_open_shortfalls"
+           Column            |       Type       | Collation | Nullable | Default
+-----------------------------+------------------+-----------+----------+---------
+ store_id                    | text             |           | not null |
+ product_id                  | text             |           | not null |
+ store_lat                   | double precision |           |          |
+ store_lng                   | double precision |           |          |
+ region                      | text             |           |          |
+ on_hand_units               | integer          |           |          |
+ avg_daily_velocity          | numeric          |           |          |
+ price_usd                   | double precision |           |          |
+ lost_sales_exposure_usd     | double precision |           |          |
+ nearest_surplus_store_id    | text             |           |          |
+ nearest_surplus_on_hand     | integer          |           |          |
+ nearest_surplus_distance_km | double precision |           |          |
+Partition key: RANGE (store_id, product_id)
+Indexes:
+    "gold_open_shortfalls_pkey" PRIMARY KEY, btree (store_id, product_id)
+Number of partitions: 1
+
+(This is a Partitioned table managed by the Lakebase SNAPSHOT sync pipeline.
+ Only SELECT queries and CREATE INDEX are permitted. Writes/DML break sync.)
