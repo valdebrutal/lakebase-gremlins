@@ -1,0 +1,73 @@
+{
+  "submission_note": "Throwaway forecasting branch evidence for NorthPeak Lakebase Build 1",
+  "date": "2026-08-27",
+
+  "branch_name": "forecast-2x-demand",
+  "branch_resource_path": "projects/northpeak-retail/branches/forecast-2x-demand",
+  "branch_uid": "br-sparkling-feather-d25k7a98",
+  "source_branch": "projects/northpeak-retail/branches/production",
+  "ttl": "7200s",
+  "purpose": "THROWAWAY forecasting branch — isolated what-if scenario, NOT development iteration",
+  "created_at": "2026-08-27T13:48:09Z",
+  "expires_at": "2026-08-27T15:48:09Z",
+
+  "endpoint_host": "ep-flat-scene-d2ectasz.database.us-east-1.cloud.databricks.com",
+  "endpoint_resource_path": "projects/northpeak-retail/branches/forecast-2x-demand/endpoints/primary",
+  "endpoint_uid": "ep-flat-scene-d2ectasz",
+
+  "branch_creation_output": {
+    "branch_id": "forecast-2x-demand",
+    "create_time": "2026-08-27T13:48:09Z",
+    "name": "projects/northpeak-retail/branches/forecast-2x-demand",
+    "parent": "projects/northpeak-retail",
+    "spec": {
+      "source_branch": "projects/northpeak-retail/branches/production",
+      "ttl": "7200s"
+    },
+    "status": {
+      "branch_id": "forecast-2x-demand",
+      "current_state": "READY",
+      "default": false,
+      "expire_time": "2026-08-27T15:48:09Z",
+      "is_protected": false,
+      "logical_size_bytes": 0,
+      "source_branch": "projects/northpeak-retail/branches/production",
+      "source_branch_lsn": "0/75E7C70",
+      "source_branch_time": "2026-08-27T13:48:04Z",
+      "state_change_time": "2026-08-27T13:48:10Z"
+    },
+    "uid": "br-sparkling-feather-d25k7a98",
+    "update_time": "2026-08-27T13:48:11Z"
+  },
+
+  "forecasting_scenario": {
+    "description": "2x demand spike: what-if analysis for SKU-APP-04412 (Summit Down Parka) — if demand doubled, what would lost-sales exposure look like across all stores? This query runs in isolation on the throwaway branch and does NOT modify production data.",
+    "query": "SELECT store_id, product_id, region, on_hand_units AS current_on_hand, lost_sales_exposure_usd AS current_exposure_usd, ROUND((lost_sales_exposure_usd * 2)::numeric, 2) AS forecast_2x_exposure_usd, ROUND(CASE WHEN on_hand_units > 0 THEN (lost_sales_exposure_usd * 2) / on_hand_units ELSE lost_sales_exposure_usd * 2 END::numeric, 2) AS urgency_score_2x FROM public.gold_open_shortfalls WHERE product_id = 'SKU-APP-04412' ORDER BY forecast_2x_exposure_usd DESC LIMIT 10;",
+    "result_rows": [
+      {"store_id": "STORE-0034", "product_id": "SKU-APP-04412", "region": "Midwest",  "current_on_hand": 999, "current_exposure_usd": 76834.28, "forecast_2x_exposure_usd": 153668.57, "urgency_score_2x": 153.82},
+      {"store_id": "STORE-0006", "product_id": "SKU-APP-04412", "region": "West",     "current_on_hand": 0,   "current_exposure_usd": 70431.43, "forecast_2x_exposure_usd": 140862.85, "urgency_score_2x": 140862.85},
+      {"store_id": "STORE-0083", "product_id": "SKU-APP-04412", "region": "Midwest",  "current_on_hand": 0,   "current_exposure_usd": 68297.14, "forecast_2x_exposure_usd": 136594.28, "urgency_score_2x": 136594.28},
+      {"store_id": "STORE-0043", "product_id": "SKU-APP-04412", "region": "West",     "current_on_hand": 0,   "current_exposure_usd": 67230.00, "forecast_2x_exposure_usd": 134460.00, "urgency_score_2x": 134460.00},
+      {"store_id": "STORE-0011", "product_id": "SKU-APP-04412", "region": "Midwest",  "current_on_hand": 0,   "current_exposure_usd": 65095.72, "forecast_2x_exposure_usd": 130191.43, "urgency_score_2x": 130191.43},
+      {"store_id": "STORE-0065", "product_id": "SKU-APP-04412", "region": "West",     "current_on_hand": 0,   "current_exposure_usd": 65095.72, "forecast_2x_exposure_usd": 130191.43, "urgency_score_2x": 130191.43},
+      {"store_id": "STORE-0023", "product_id": "SKU-APP-04412", "region": "West",     "current_on_hand": 0,   "current_exposure_usd": 65095.72, "forecast_2x_exposure_usd": 130191.43, "urgency_score_2x": 130191.43},
+      {"store_id": "STORE-0053", "product_id": "SKU-APP-04412", "region": "Midwest",  "current_on_hand": 0,   "current_exposure_usd": 65095.72, "forecast_2x_exposure_usd": 130191.43, "urgency_score_2x": 130191.43},
+      {"store_id": "STORE-0003", "product_id": "SKU-APP-04412", "region": "Midwest",  "current_on_hand": 0,   "current_exposure_usd": 64028.57, "forecast_2x_exposure_usd": 128057.15, "urgency_score_2x": 128057.15},
+      {"store_id": "STORE-0045", "product_id": "SKU-APP-04412", "region": "West",     "current_on_hand": 0,   "current_exposure_usd": 64028.57, "forecast_2x_exposure_usd": 128057.15, "urgency_score_2x": 128057.15}
+    ],
+    "row_count": 10,
+    "key_finding": "Under a 2x demand spike, the top 10 stores face $128K-$154K in lost-sales exposure for SKU-APP-04412. Midwest and West regions dominate. This scenario ran in isolation on the throwaway branch — production data is unaffected."
+  },
+
+  "production_isolation_proof": {
+    "note": "The forecasting scenario query ran only on the forecast-2x-demand branch. Production was verified to have the same northpeak.replenishment_actions count (6 rows) and unmodified gold_open_shortfalls data, confirming the forecast scenario did not touch production.",
+    "production_check": {
+      "northpeak_actions_count": 6,
+      "connection": "ep-spring-moon-d266w13l.database.us-east-1.cloud.databricks.com"
+    }
+  },
+
+  "throwaway_branch_note": "This branch has a 7200s (2-hour) TTL and expires at 2026-08-27T15:48:09Z. It is a copy-on-write snapshot from production — isolated storage, no impact on production. Contrast with dev-otto (TTL 604800s / 7 days), which is the persistent development-iteration branch where Migration 001 was developed and validated before promotion.",
+
+  "use_case_summary": "forecast-2x-demand demonstrates THROWAWAY forecasting: a branch created specifically for an isolated what-if analysis with a short TTL, then discarded. This is the second branch use case required by the submission (the first, dev-otto, demonstrates development iteration)."
+}

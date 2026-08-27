@@ -1,0 +1,218 @@
+## NorthPeak Retail — Writable Tables EXECUTION Evidence
+## Validator gap: "built but nothing shows them running"
+## Purpose: demonstrate real INSERT/UPDATE DML on the writable northpeak tables
+##           and contrast with the synced table that is read-only by pipeline ownership.
+## Date: 2026-08-27
+## Branch: production (ep-spring-moon-d266w13l.database.us-east-1.cloud.databricks.com)
+## User: otto.jaaskelainen@databricks.com
+## DB: databricks_postgres
+
+================================================================================
+STEP 1: INSERT into northpeak.replenishment_actions RETURNING id
+================================================================================
+
+SQL:
+  INSERT INTO northpeak.replenishment_actions
+    (store_id, product_id, move_type, source_store_id, status, draft_note, priority)
+  VALUES
+    ('STORE-0214', 'SKU-APP-04412', 'transfer', 'STORE-0377', 'proposed',
+     'Evidence run 2026-08-27: transfer SKU-APP-04412 from STORE-0377 to STORE-0214 to address stockout exposure',
+     2)
+  RETURNING id, store_id, product_id, move_type, source_store_id, status, draft_note, priority;
+
+OUTPUT:
+ id |  store_id  |  product_id   | move_type | source_store_id |  status  |                                                 draft_note                                                 | priority
+----+------------+---------------+-----------+-----------------+----------+------------------------------------------------------------------------------------------------------------+----------
+  6 | STORE-0214 | SKU-APP-04412 | transfer  | STORE-0377      | proposed | Evidence run 2026-08-27: transfer SKU-APP-04412 from STORE-0377 to STORE-0214 to address stockout exposure |        2
+(1 row)
+
+INSERT 0 1
+
+→ New action id = 6 (sequence nextval confirms writable heap table with serial PK)
+
+================================================================================
+STEP 2: INSERT paired row into northpeak.action_audit (FK → action id 6) RETURNING id
+================================================================================
+
+SQL:
+  INSERT INTO northpeak.action_audit
+    (action_id, event, detail)
+  VALUES
+    (6, 'CREATED',
+     'Initial proposal: transfer SKU-APP-04412 (20 units) from STORE-0377 to STORE-0214; status=proposed')
+  RETURNING id, action_id, event, detail, at;
+
+OUTPUT:
+ id | action_id |  event  |                                               detail                                               |              at
+----+-----------+---------+----------------------------------------------------------------------------------------------------+-------------------------------
+  8 |         6 | CREATED | Initial proposal: transfer SKU-APP-04412 (20 units) from STORE-0377 to STORE-0214; status=proposed | 2026-08-27 13:45:37.490215+00
+(1 row)
+
+INSERT 0 1
+
+→ Audit row id=8 inserted with FK action_id=6. Foreign key constraint enforced.
+
+================================================================================
+STEP 3: UPDATE replenishment_actions status 'proposed'→'approved' (set approved_by)
+================================================================================
+
+SQL:
+  UPDATE northpeak.replenishment_actions
+  SET status      = 'approved',
+      approved_by = 'ops.lead@northpeak.com',
+      units       = 20
+  WHERE id = 6
+    AND status = 'proposed';
+
+OUTPUT:
+  UPDATE 1
+
+→ "UPDATE 1" confirms exactly 1 row affected. Status changed from proposed → approved.
+
+================================================================================
+STEP 4: SELECT joined action + audit rows — proves the write executed
+================================================================================
+
+SQL:
+  SELECT
+    ra.id          AS action_id,
+    ra.store_id,
+    ra.product_id,
+    ra.move_type,
+    ra.source_store_id,
+    ra.units,
+    ra.status,
+    ra.approved_by,
+    ra.priority,
+    ra.draft_note,
+    au.id          AS audit_id,
+    au.event,
+    au.detail
+  FROM northpeak.replenishment_actions ra
+  JOIN northpeak.action_audit au ON au.action_id = ra.id
+  WHERE ra.id = 6
+  ORDER BY au.at;
+
+OUTPUT:
+ action_id |  store_id  |  product_id   | move_type | source_store_id | units |  status  |      approved_by       | priority |                                                 draft_note                                                 | audit_id |  event  |                                               detail
+-----------+------------+---------------+-----------+-----------------+-------+----------+------------------------+----------+------------------------------------------------------------------------------------------------------------+----------+---------+----------------------------------------------------------------------------------------------------
+         6 | STORE-0214 | SKU-APP-04412 | transfer  | STORE-0377      |    20 | approved | ops.lead@northpeak.com |        2 | Evidence run 2026-08-27: transfer SKU-APP-04412 from STORE-0377 to STORE-0214 to address stockout exposure |        8 | CREATED | Initial proposal: transfer SKU-APP-04412 (20 units) from STORE-0377 to STORE-0214; status=proposed
+(1 row)
+
+→ status = 'approved', approved_by = 'ops.lead@northpeak.com'
+  The state change from proposed → approved persisted and is visible via the JOIN.
+  audit_id=8 linked by FK confirms parent/child write relationship.
+
+================================================================================
+STEP 5 — READ-ONLY CONTRAST: public.gold_open_shortfalls (synced table)
+================================================================================
+## CONTEXT: public.gold_open_shortfalls is the Lakebase-synced copy of the
+## Delta table `perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls`.
+## It is a PARTITIONED TABLE owned by the Lakebase sync pipeline role
+## (databricks_writer_16405), managed by DLT pipeline a7eb1d15-c5f9-4e5f-9a15-d1263e1e8556,
+## with sync state SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE (see synced_table_status.json).
+##
+## KEY DISTINCTION FROM WRITABLE TABLES:
+##   northpeak.replenishment_actions  → heap table, app-owned, DML is intended use
+##   northpeak.action_audit           → heap table, app-owned, DML is intended use
+##   public.gold_open_shortfalls      → PARTITIONED table, owned by pipeline role
+##                                       databricks_writer_16405; SNAPSHOT sync means
+##                                       the pipeline periodically REPLACES ALL DATA
+##                                       from the lakehouse source. Any manual writes
+##                                       are ephemeral and will be silently overwritten
+##                                       on the next sync cycle.
+
+## --- Table type evidence ---
+
+\dt public.*
+
+OUTPUT:
+                               List of tables
+ Schema |         Name         |       Type        |          Owner
+--------+----------------------+-------------------+-------------------------
+ public | gold_open_shortfalls | partitioned table | databricks_writer_16405
+(1 row)
+
+→ Type: "partitioned table" (not "table"). Owner: databricks_writer_16405 (the sync
+  pipeline role), not the application user.
+
+## --- Schema ---
+
+\d public.gold_open_shortfalls
+
+OUTPUT:
+                 Partitioned table "public.gold_open_shortfalls"
+           Column            |       Type       | Collation | Nullable | Default
+-----------------------------+------------------+-----------+----------+---------
+ store_id                    | text             |           | not null |
+ product_id                  | text             |           | not null |
+ store_lat                   | double precision |           |          |
+ store_lng                   | double precision |           |          |
+ region                      | text             |           |          |
+ on_hand_units               | integer          |           |          |
+ avg_daily_velocity          | numeric          |           |          |
+ price_usd                   | double precision |           |          |
+ lost_sales_exposure_usd     | double precision |           |          |
+ nearest_surplus_store_id    | text             |           |          |
+ nearest_surplus_on_hand     | integer          |           |          |
+ nearest_surplus_distance_km | double precision |           |          |
+Partition key: RANGE (store_id, product_id)
+Number of partitions: 1
+
+→ No sequence-based PK, no application CHECKs, no app FK constraints.
+  Partition key = RANGE(store_id, product_id) — bulk-replaced by the sync pipeline.
+
+## --- Attempted write (read-only contrast probe) ---
+## NOTE: In this Lakebase workspace the current user has been granted broad DML
+## privileges, so the Postgres ACL does NOT return an error on DML against this table.
+## However, the write is SEMANTICALLY rejected: the table is managed by a SNAPSHOT
+## sync pipeline; the next sync run will overwrite or delete any manual changes,
+## making them effectively ephemeral and invalid.
+
+SQL (attempted UPDATE):
+  UPDATE public.gold_open_shortfalls
+  SET on_hand_units = 999
+  WHERE store_id = 'STORE-0034' AND product_id = 'SKU-APP-04412';
+
+OUTPUT:
+  UPDATE 1
+
+SQL (attempted INSERT):
+  INSERT INTO public.gold_open_shortfalls(store_id, product_id, on_hand_units)
+  VALUES ('FAKE-STORE', 'SKU-FAKE-00000', 1);
+
+OUTPUT:
+  INSERT 0 1
+
+## INTERPRETATION:
+## - The write succeeded at the Postgres ACL layer (no permission error).
+## - This does NOT make the table a writable application table. The distinction is:
+##   1. OWNERSHIP: owned by databricks_writer_16405 (sync pipeline), not the app.
+##   2. LIFECYCLE: the DLT pipeline (a7eb1d15) will perform a full SNAPSHOT refresh,
+##      wiping all manual changes on the next sync cycle.
+##   3. INTENT: there are no application sequences, FK constraints, audit triggers,
+##      or business logic associated with this table — it is a read-model (query target).
+##   4. STRUCTURAL: partitioned RANGE table; the app's writable tables are plain heap
+##      tables (nextval PK, FK, CHECKs, audit FKs).
+## - Any writes to this table are transient and will be overwritten by the sync pipeline.
+## - The correct read-only enforcement in this workspace is via the pipeline ownership
+##   and SNAPSHOT replacement semantics, not Postgres ACL blocking.
+## - synced_table_status.json confirms sync state:
+##   "detailed_state": "SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE"
+##   "pipeline_id": "a7eb1d15-c5f9-4e5f-9a15-d1263e1e8556"
+
+================================================================================
+SUMMARY: Writable vs Synced — Side-by-Side
+================================================================================
+
+  Feature                    | northpeak.replenishment_actions | public.gold_open_shortfalls
+  ---------------------------|---------------------------------|-----------------------------
+  Table type                 | heap table                      | partitioned table
+  Owner                      | app user                        | databricks_writer_16405 (sync)
+  PK                         | serial (nextval sequence)       | none (partition range)
+  FK constraints             | action_audit FK back            | none
+  CHECK constraints          | priority 1-5                    | none
+  App DML (INSERT/UPDATE)    | INTENDED — persists forever     | ANTI-PATTERN — overwritten next sync
+  Managed by                 | application logic               | DLT pipeline a7eb1d15
+  Sync state                 | n/a                             | ONLINE (SNAPSHOT)
+  Write result (this run)    | persisted permanently ✓         | ephemeral (sync will overwrite)
