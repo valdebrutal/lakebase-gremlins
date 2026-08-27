@@ -38,7 +38,7 @@ economics AS (
     -- transfer
     LEAST(sf.units_needed, COALESCE(sf.nearest_surplus_on_hand, 0)) AS transfer_units,
     LEAST(sf.units_needed, COALESCE(sf.nearest_surplus_on_hand, 0)) * sf.price_usd * 0.9
-      * (1 - COALESCE(sf.nearest_surplus_distance_km, 0) / 5000.0) AS transfer_recaptured,
+      * GREATEST(0, 1 - COALESCE(sf.nearest_surplus_distance_km, 0) / 5000.0) AS transfer_recaptured,
     60 + COALESCE(sf.nearest_surplus_distance_km, 0) * 1.1 AS transfer_cost,
     -- expedite
     sf.units_needed * sf.price_usd * 0.82 AS expedite_recaptured,
