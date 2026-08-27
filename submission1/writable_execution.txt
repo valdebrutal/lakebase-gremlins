@@ -201,6 +201,16 @@ OUTPUT:
 ##   "detailed_state": "SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE"
 ##   "pipeline_id": "a7eb1d15-c5f9-4e5f-9a15-d1263e1e8556"
 
+## --- REVERTED (production left clean) ---
+## The two probe writes above were TEST-ONLY and were reverted immediately so the
+## shared synced table is restored to its correct state:
+##   UPDATE public.gold_open_shortfalls SET on_hand_units=0
+##     WHERE store_id='STORE-0034' AND product_id='SKU-APP-04412';   -- back to 0 (stockout)
+##   DELETE FROM public.gold_open_shortfalls WHERE store_id='FAKE-STORE';  -- removed
+## Verified after: STORE-0034/SKU-APP-04412 on_hand_units=0, no FAKE-STORE row.
+## Takeaway: the correct write surface is the app-owned northpeak.* tables (Steps 1-4);
+## the synced table is a read-model — writes there are an anti-pattern, not a feature.
+
 ================================================================================
 SUMMARY: Writable vs Synced — Side-by-Side
 ================================================================================
