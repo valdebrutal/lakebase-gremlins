@@ -1,0 +1,29 @@
+* 8ac29c7 (HEAD -> milestone-4-lakebase) feat(lakebase): complete Build 1 evidence — reverse sync, search, core query, branch
+*   6f224f7 Merge lakebase-dev: promote Build 1 migration (priority column) to main
+|\  
+| * d534306 (lakebase-dev) feat(lakebase): add priority migration and synced-table evidence for Build 1
+|/  
+* fd47e09 refactor(dab): manage dashboard + Genie space as bundle resources
+*   2553356 (origin/master, origin/HEAD, master) Merge pull request #1 from valdebrutal/milestone-3-ai-bi
+|\  
+| | * 4d092a4 (origin/milestone-3-ai-bi, milestone-3-ai-bi) refactor(dab): manage dashboard + Genie space as bundle resources
+| |/  
+| * b47e03b fix(pipeline): gate markdown_exposure_usd to over-stocked positions
+| * 9caf59d feat(dashboard): add NorthPeak AI/BI dashboard + update resources (milestone 3)
+| * f6f693c feat(genie): add NorthPeak Store Operations Genie space (milestone 3)
+| * b508350 (milestone-2-metric-view) feat(governance): mv_store_position metric view (Milestone 02)
+| * 2b06762 (milestone-1-sdp-pipeline) fix(pipeline): floor transfer distance-degrade to avoid negative recaptured
+| * 6b3d727 feat(pipeline): §C validation passing + record pipeline_id
+| * b25fd7a feat(pipeline): gold_recovery_recommendations heuristic + move_ranking
+| * 11bf7bf feat(pipeline): gold_transfer_outcomes
+| * cb0c292 feat(pipeline): gold_open_shortfalls with nearest-surplus join
+| * f710f4f feat(pipeline): gold_store_sku_position spine (status + exposures)
+| * f3b29ae feat(pipeline): silver_transfers with haversine distance_km
+| * 26aaa9c feat(pipeline): silver_inventory with markdown_risk_score join
+| * 10fba3a feat(pipeline): note_markdown_flags via ai_classify (deduped)
+| * 4f60697 feat(pipeline): wire northpeak_operations + raw views + silver_sales
+| * 5490711 Plan: northpeak_operations SDP pipeline implementation
+| * f0d4429 Design doc: northpeak_operations SDP pipeline (Milestone 1)
+|/  
+* 83880aa Target fevm-perma-vm workspace and perma_vm_catalog
+* 095d21e init
