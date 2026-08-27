@@ -1,0 +1,7 @@
+[
+  {"id":1,"store_id":"STR-001","product_id":"SKU-APP-04412","move_type":"TRANSFER","predicted_recaptured_usd":3120.00,"priority":1,"status":"APPROVED"},
+  {"id":4,"store_id":"STR-009","product_id":"SKU-SPT-00187","move_type":"TRANSFER","predicted_recaptured_usd":2340.00,"priority":1,"status":"DRAFT"},
+  {"id":2,"store_id":"STR-003","product_id":"SKU-APP-04412","move_type":"REORDER","predicted_recaptured_usd":1560.00,"priority":2,"status":"DRAFT"},
+  {"id":3,"store_id":"STR-005","product_id":"SKU-APP-04412","move_type":"MARKDOWN","predicted_recaptured_usd":520.00,"priority":3,"status":"APPROVED"},
+  {"id":5,"store_id":"STR-011","product_id":"SKU-CAM-03311","move_type":"REORDER","predicted_recaptured_usd":780.00,"priority":3,"status":"DRAFT"}
+]

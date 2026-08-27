@@ -1,0 +1,13 @@
+Lakebase Project: projects/northpeak-retail
+Production Branch: projects/northpeak-retail/branches/production
+Primary Endpoint: projects/northpeak-retail/branches/production/endpoints/primary
+Endpoint Host: ep-spring-moon-d266w13l.database.us-east-1.cloud.databricks.com
+Postgres Database: databricks_postgres
+UC Catalog (registered): lakebase-gremlins-uc-registration
+Owner: luciano.dolenc@databricks.com
+Postgres Version: 17
+
+--- Connectivity Check ---
+SELECT version() output:
+PostgreSQL 17.11 (df1f1a3) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+(1 row)

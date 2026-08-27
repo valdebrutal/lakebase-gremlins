@@ -1,0 +1,14 @@
+Domain Question: Which stores are short on a top product?
+
+Specifically: Identify all stores with ZERO on-hand inventory for the hero SKU
+SKU-APP-04412 (Summit Down Parka), ranked by lost_sales_exposure_usd descending.
+This identifies the highest-revenue-risk shortfalls and highlights whether nearby
+surplus stores could cover the gap via a transfer.
+
+Data source: public.gold_open_shortfalls (synced from
+perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls via
+SNAPSHOT sync, 150 rows total, 10 rows shown here for SKU-APP-04412 with on_hand=0).
+
+Top finding: STORE-0034 (Midwest) has $76,834 in lost sales exposure with zero units
+on hand and no identified surplus store nearby. STORE-0006 (West) could receive a
+transfer from STORE-0377 which has 833 units, 100 km away.

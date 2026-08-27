@@ -52,11 +52,16 @@
             "name": "page1-title",
             "multilineTextboxSpec": {
               "lines": [
-                "## NorthPeak Store Operations\n\nDana Ruiz, SVP Retail Ops. An early cold snap ~3 weeks ago left the same cold-weather styles **SOLD OUT in the North** (red — lost sales) and **DEAD STOCK in the South** (amber — markdown clock). This page tracks the headline exposure and where it lives. Use the Filters panel to narrow by climate zone, region, category, or position status."
+                "## NorthPeak Store Operations\n\nDana Ruiz, SVP Retail Ops. An early cold snap ~3 weeks ago left the same cold-weather styles **SOLD OUT in the North** (red \u2014 lost sales) and **DEAD STOCK in the South** (amber \u2014 markdown clock). This page tracks the headline exposure and where it lives. Use the Filters panel to narrow by climate zone, region, category, or position status."
               ]
             }
           },
-          "position": {"x": 0, "y": 0, "width": 12, "height": 3}
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -67,7 +72,10 @@
                 "query": {
                   "datasetName": "ds_exposure",
                   "fields": [
-                    {"name": "sum(lost_sales_usd)", "expression": "SUM(`lost_sales_usd`)"}
+                    {
+                      "name": "sum(lost_sales_usd)",
+                      "expression": "SUM(`lost_sales_usd`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -84,7 +92,10 @@
                     "type": "number-currency",
                     "currencyCode": "USD",
                     "abbreviation": "compact",
-                    "decimalPlaces": {"type": "max", "places": 2}
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
                   }
                 }
               },
@@ -96,7 +107,12 @@
               }
             }
           },
-          "position": {"x": 0, "y": 3, "width": 3, "height": 3}
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -107,7 +123,10 @@
                 "query": {
                   "datasetName": "ds_exposure",
                   "fields": [
-                    {"name": "sum(markdown_usd)", "expression": "SUM(`markdown_usd`)"}
+                    {
+                      "name": "sum(markdown_usd)",
+                      "expression": "SUM(`markdown_usd`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -124,7 +143,10 @@
                     "type": "number-currency",
                     "currencyCode": "USD",
                     "abbreviation": "compact",
-                    "decimalPlaces": {"type": "max", "places": 2}
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
                   }
                 }
               },
@@ -136,7 +158,12 @@
               }
             }
           },
-          "position": {"x": 3, "y": 3, "width": 3, "height": 3}
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -147,7 +174,10 @@
                 "query": {
                   "datasetName": "ds_exposure",
                   "fields": [
-                    {"name": "sum(stockout_count)", "expression": "SUM(`stockout_count`)"}
+                    {
+                      "name": "sum(stockout_count)",
+                      "expression": "SUM(`stockout_count`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -174,7 +204,12 @@
               }
             }
           },
-          "position": {"x": 6, "y": 3, "width": 3, "height": 3}
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 3,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -185,7 +220,10 @@
                 "query": {
                   "datasetName": "ds_exposure",
                   "fields": [
-                    {"name": "sum(overstock_count)", "expression": "SUM(`overstock_count`)"}
+                    {
+                      "name": "sum(overstock_count)",
+                      "expression": "SUM(`overstock_count`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -212,7 +250,12 @@
               }
             }
           },
-          "position": {"x": 9, "y": 3, "width": 3, "height": 3}
+          "position": {
+            "x": 9,
+            "y": 3,
+            "width": 3,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -223,18 +266,44 @@
                 "query": {
                   "datasetName": "ds_positions",
                   "fields": [
-                    {"name": "store_lat", "expression": "`store_lat`"},
-                    {"name": "store_lng", "expression": "`store_lng`"},
-                    {"name": "position_status", "expression": "`position_status`"},
-                    {"name": "recent_units_7d", "expression": "`recent_units_7d`"},
-                    {"name": "store_name", "expression": "`store_name`"},
-                    {"name": "city", "expression": "`city`"},
-                    {"name": "on_hand_units", "expression": "`on_hand_units`"},
-                    {"name": "product_name", "expression": "`product_name`"}
+                    {
+                      "name": "store_lat",
+                      "expression": "`store_lat`"
+                    },
+                    {
+                      "name": "store_lng",
+                      "expression": "`store_lng`"
+                    },
+                    {
+                      "name": "position_status",
+                      "expression": "`position_status`"
+                    },
+                    {
+                      "name": "recent_units_7d",
+                      "expression": "`recent_units_7d`"
+                    },
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "on_hand_units",
+                      "expression": "`on_hand_units`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    }
                   ],
                   "disaggregated": true,
                   "filters": [
-                    {"expression": "`product_id` IN ('SKU-APP-04412','SKU-APP-04418','SKU-APP-04431','SKU-APP-04455','SKU-APP-04460')"}
+                    {
+                      "expression": "`product_id` IN ('SKU-APP-04412','SKU-APP-04418','SKU-APP-04431','SKU-APP-04455','SKU-APP-04460')"
+                    }
                   ]
                 }
               }
@@ -244,27 +313,47 @@
               "widgetType": "symbol-map",
               "encodings": {
                 "coordinates": {
-                  "latitude": {"fieldName": "store_lat"},
-                  "longitude": {"fieldName": "store_lng"}
+                  "latitude": {
+                    "fieldName": "store_lat"
+                  },
+                  "longitude": {
+                    "fieldName": "store_lng"
+                  }
                 },
                 "color": {
                   "fieldName": "position_status",
                   "scale": {
                     "type": "categorical",
                     "mappings": [
-                      {"value": "stockout", "color": "#E5484D"},
-                      {"value": "at_risk", "color": "#FFB020"},
-                      {"value": "overstock", "color": "#FFB020"},
-                      {"value": "healthy", "color": "#3C6997"}
+                      {
+                        "value": "stockout",
+                        "color": "#E5484D"
+                      },
+                      {
+                        "value": "at_risk",
+                        "color": "#FFB020"
+                      },
+                      {
+                        "value": "overstock",
+                        "color": "#FFB020"
+                      },
+                      {
+                        "value": "healthy",
+                        "color": "#3C6997"
+                      }
                     ]
                   }
                 },
                 "size": {
                   "fieldName": "recent_units_7d",
-                  "scale": {"type": "quantitative"}
+                  "scale": {
+                    "type": "quantitative"
+                  }
                 }
               },
-              "mark": {"opacity": 1},
+              "mark": {
+                "opacity": 1
+              },
               "frame": {
                 "showTitle": true,
                 "title": "Store positions on cold-weather apparel (5 SKUs)",
@@ -273,7 +362,12 @@
               }
             }
           },
-          "position": {"x": 0, "y": 6, "width": 12, "height": 6}
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 6
+          }
         },
         {
           "widget": {
@@ -284,13 +378,24 @@
                 "query": {
                   "datasetName": "ds_positions",
                   "fields": [
-                    {"name": "climate_zone", "expression": "`climate_zone`"},
-                    {"name": "position_status", "expression": "`position_status`"},
-                    {"name": "count(*)", "expression": "COUNT(`*`)"}
+                    {
+                      "name": "climate_zone",
+                      "expression": "`climate_zone`"
+                    },
+                    {
+                      "name": "position_status",
+                      "expression": "`position_status`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
                   ],
                   "disaggregated": false,
                   "filters": [
-                    {"expression": "`product_id` IN ('SKU-APP-04412','SKU-APP-04418','SKU-APP-04431','SKU-APP-04455','SKU-APP-04460')"}
+                    {
+                      "expression": "`product_id` IN ('SKU-APP-04412','SKU-APP-04418','SKU-APP-04431','SKU-APP-04455','SKU-APP-04460')"
+                    }
                   ]
                 }
               }
@@ -301,12 +406,16 @@
               "encodings": {
                 "x": {
                   "fieldName": "climate_zone",
-                  "scale": {"type": "categorical"},
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Climate Zone"
                 },
                 "y": {
                   "fieldName": "count(*)",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Positions"
                 },
                 "color": {
@@ -315,10 +424,22 @@
                   "scale": {
                     "type": "categorical",
                     "mappings": [
-                      {"value": "stockout", "color": "#E5484D"},
-                      {"value": "at_risk", "color": "#FFB020"},
-                      {"value": "overstock", "color": "#FFB020"},
-                      {"value": "healthy", "color": "#3C6997"}
+                      {
+                        "value": "stockout",
+                        "color": "#E5484D"
+                      },
+                      {
+                        "value": "at_risk",
+                        "color": "#FFB020"
+                      },
+                      {
+                        "value": "overstock",
+                        "color": "#FFB020"
+                      },
+                      {
+                        "value": "healthy",
+                        "color": "#3C6997"
+                      }
                     ]
                   }
                 }
@@ -331,7 +452,12 @@
               }
             }
           },
-          "position": {"x": 0, "y": 12, "width": 6, "height": 5}
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 5
+          }
         },
         {
           "widget": {
@@ -342,15 +468,26 @@
                 "query": {
                   "datasetName": "ds_positions",
                   "fields": [
-                    {"name": "product_name", "expression": "`product_name`"},
-                    {"name": "sum(lost_sales_exposure_usd)", "expression": "SUM(`lost_sales_exposure_usd`)"}
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "sum(lost_sales_exposure_usd)",
+                      "expression": "SUM(`lost_sales_exposure_usd`)"
+                    }
                   ],
                   "disaggregated": false,
                   "filters": [
-                    {"expression": "`position_status` = 'stockout'"}
+                    {
+                      "expression": "`position_status` = 'stockout'"
+                    }
                   ],
                   "orders": [
-                    {"direction": "DESC", "expression": "SUM(`lost_sales_exposure_usd`)"}
+                    {
+                      "direction": "DESC",
+                      "expression": "SUM(`lost_sales_exposure_usd`)"
+                    }
                   ]
                 }
               }
@@ -360,14 +497,21 @@
               "widgetType": "bar",
               "encodings": {
                 "x": {
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "fields": [
-                    {"fieldName": "sum(lost_sales_exposure_usd)", "displayName": "Lost Sales ($)"}
+                    {
+                      "fieldName": "sum(lost_sales_exposure_usd)",
+                      "displayName": "Lost Sales ($)"
+                    }
                   ]
                 },
                 "y": {
                   "fieldName": "product_name",
-                  "scale": {"type": "categorical"},
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Product"
                 }
               },
@@ -375,11 +519,16 @@
                 "showTitle": true,
                 "title": "Lost sales by product (stockout positions)",
                 "showDescription": true,
-                "description": "Summit Down Parka and Ridgeline Insulated Jacket dominate — the 5 cold-weather SKUs driving the entire shortfall."
+                "description": "Summit Down Parka and Ridgeline Insulated Jacket dominate \u2014 the 5 cold-weather SKUs driving the entire shortfall."
               }
             }
           },
-          "position": {"x": 6, "y": 12, "width": 6, "height": 5}
+          "position": {
+            "x": 6,
+            "y": 12,
+            "width": 6,
+            "height": 5
+          }
         }
       ]
     },
@@ -394,11 +543,16 @@
             "name": "page2-title",
             "multilineTextboxSpec": {
               "lines": [
-                "## Recovery — what do we do about it?\n\nThe worst shortfalls, the surplus that can cover them, and the model's recommended move with the revenue it recaptures. Summit Down Parka at Store 214 (Denver) is the hero shortfall — scroll to find it in the stockout table. STORE-0377 (Colorado Springs, ~100 km south) holds the surplus parkas."
+                "## Recovery \u2014 what do we do about it?\n\nThe worst shortfalls, the surplus that can cover them, and the model's recommended move with the revenue it recaptures. Summit Down Parka at Store 214 (Denver) is the hero shortfall \u2014 scroll to find it in the stockout table. STORE-0377 (Colorado Springs, ~100 km south) holds the surplus parkas."
               ]
             }
           },
-          "position": {"x": 0, "y": 0, "width": 12, "height": 3}
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
         },
         {
           "widget": {
@@ -409,16 +563,36 @@
                 "query": {
                   "datasetName": "ds_positions",
                   "fields": [
-                    {"name": "store_name", "expression": "`store_name`"},
-                    {"name": "city", "expression": "`city`"},
-                    {"name": "product_name", "expression": "`product_name`"},
-                    {"name": "on_hand_units", "expression": "`on_hand_units`"},
-                    {"name": "recent_units_7d", "expression": "`recent_units_7d`"},
-                    {"name": "lost_sales_exposure_usd", "expression": "`lost_sales_exposure_usd`"}
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "on_hand_units",
+                      "expression": "`on_hand_units`"
+                    },
+                    {
+                      "name": "recent_units_7d",
+                      "expression": "`recent_units_7d`"
+                    },
+                    {
+                      "name": "lost_sales_exposure_usd",
+                      "expression": "`lost_sales_exposure_usd`"
+                    }
                   ],
                   "disaggregated": true,
                   "filters": [
-                    {"expression": "`position_status` IN ('stockout', 'at_risk')"}
+                    {
+                      "expression": "`position_status` IN ('stockout', 'at_risk')"
+                    }
                   ]
                 }
               }
@@ -428,11 +602,26 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  {"fieldName": "store_name", "displayName": "Store"},
-                  {"fieldName": "city", "displayName": "City"},
-                  {"fieldName": "product_name", "displayName": "Product"},
-                  {"fieldName": "on_hand_units", "displayName": "On Hand"},
-                  {"fieldName": "recent_units_7d", "displayName": "Units / 7d"},
+                  {
+                    "fieldName": "store_name",
+                    "displayName": "Store"
+                  },
+                  {
+                    "fieldName": "city",
+                    "displayName": "City"
+                  },
+                  {
+                    "fieldName": "product_name",
+                    "displayName": "Product"
+                  },
+                  {
+                    "fieldName": "on_hand_units",
+                    "displayName": "On Hand"
+                  },
+                  {
+                    "fieldName": "recent_units_7d",
+                    "displayName": "Units / 7d"
+                  },
                   {
                     "fieldName": "lost_sales_exposure_usd",
                     "displayName": "Lost Sales ($)",
@@ -440,7 +629,10 @@
                       "type": "number-currency",
                       "currencyCode": "USD",
                       "abbreviation": "compact",
-                      "decimalPlaces": {"type": "max", "places": 2}
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
                     }
                   }
                 ]
@@ -449,11 +641,16 @@
                 "showTitle": true,
                 "title": "Worst stockouts (lost sales)",
                 "showDescription": true,
-                "description": "Store 214 / Summit Down Parka is the hero shortfall — 0 on hand, ~7.6 units/day velocity."
+                "description": "Store 214 / Summit Down Parka is the hero shortfall \u2014 0 on hand, ~7.6 units/day velocity."
               }
             }
           },
-          "position": {"x": 0, "y": 3, "width": 6, "height": 6}
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 6
+          }
         },
         {
           "widget": {
@@ -464,16 +661,36 @@
                 "query": {
                   "datasetName": "ds_positions",
                   "fields": [
-                    {"name": "store_name", "expression": "`store_name`"},
-                    {"name": "city", "expression": "`city`"},
-                    {"name": "product_name", "expression": "`product_name`"},
-                    {"name": "on_hand_units", "expression": "`on_hand_units`"},
-                    {"name": "weeks_of_supply", "expression": "`weeks_of_supply`"},
-                    {"name": "markdown_exposure_usd", "expression": "`markdown_exposure_usd`"}
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "on_hand_units",
+                      "expression": "`on_hand_units`"
+                    },
+                    {
+                      "name": "weeks_of_supply",
+                      "expression": "`weeks_of_supply`"
+                    },
+                    {
+                      "name": "markdown_exposure_usd",
+                      "expression": "`markdown_exposure_usd`"
+                    }
                   ],
                   "disaggregated": true,
                   "filters": [
-                    {"expression": "`position_status` = 'overstock'"}
+                    {
+                      "expression": "`position_status` = 'overstock'"
+                    }
                   ]
                 }
               }
@@ -483,16 +700,31 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  {"fieldName": "store_name", "displayName": "Store"},
-                  {"fieldName": "city", "displayName": "City"},
-                  {"fieldName": "product_name", "displayName": "Product"},
-                  {"fieldName": "on_hand_units", "displayName": "On Hand"},
+                  {
+                    "fieldName": "store_name",
+                    "displayName": "Store"
+                  },
+                  {
+                    "fieldName": "city",
+                    "displayName": "City"
+                  },
+                  {
+                    "fieldName": "product_name",
+                    "displayName": "Product"
+                  },
+                  {
+                    "fieldName": "on_hand_units",
+                    "displayName": "On Hand"
+                  },
                   {
                     "fieldName": "weeks_of_supply",
                     "displayName": "Weeks Supply",
                     "format": {
                       "type": "number",
-                      "decimalPlaces": {"type": "exact", "places": 1}
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      }
                     }
                   },
                   {
@@ -502,7 +734,10 @@
                       "type": "number-currency",
                       "currencyCode": "USD",
                       "abbreviation": "compact",
-                      "decimalPlaces": {"type": "max", "places": 2}
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
                     }
                   }
                 ]
@@ -511,11 +746,16 @@
                 "showTitle": true,
                 "title": "Biggest markdown risk (overstock)",
                 "showDescription": true,
-                "description": "Southern stores sitting on cold-weather apparel — STORE-0377 (Colorado Springs) holds 833 Summit Down Parkas Store 214 needs."
+                "description": "Southern stores sitting on cold-weather apparel \u2014 STORE-0377 (Colorado Springs) holds 833 Summit Down Parkas Store 214 needs."
               }
             }
           },
-          "position": {"x": 6, "y": 3, "width": 6, "height": 6}
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 6
+          }
         },
         {
           "widget": {
@@ -526,8 +766,14 @@
                 "query": {
                   "datasetName": "ds_recovery",
                   "fields": [
-                    {"name": "recommended_move", "expression": "`recommended_move`"},
-                    {"name": "count(*)", "expression": "COUNT(`*`)"}
+                    {
+                      "name": "recommended_move",
+                      "expression": "`recommended_move`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -539,12 +785,16 @@
               "encodings": {
                 "x": {
                   "fieldName": "recommended_move",
-                  "scale": {"type": "categorical"},
+                  "scale": {
+                    "type": "categorical"
+                  },
                   "displayName": "Recovery Move"
                 },
                 "y": {
                   "fieldName": "count(*)",
-                  "scale": {"type": "quantitative"},
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "# Shortfalls"
                 },
                 "color": {
@@ -552,8 +802,14 @@
                   "scale": {
                     "type": "categorical",
                     "mappings": [
-                      {"value": "transfer", "color": "#3C6997"},
-                      {"value": "expedite", "color": "#FFB020"}
+                      {
+                        "value": "transfer",
+                        "color": "#3C6997"
+                      },
+                      {
+                        "value": "expedite",
+                        "color": "#FFB020"
+                      }
                     ]
                   }
                 }
@@ -566,7 +822,12 @@
               }
             }
           },
-          "position": {"x": 0, "y": 9, "width": 6, "height": 5}
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 5
+          }
         },
         {
           "widget": {
@@ -577,7 +838,10 @@
                 "query": {
                   "datasetName": "ds_recovery",
                   "fields": [
-                    {"name": "sum(predicted_recaptured_usd)", "expression": "SUM(`predicted_recaptured_usd`)"}
+                    {
+                      "name": "sum(predicted_recaptured_usd)",
+                      "expression": "SUM(`predicted_recaptured_usd`)"
+                    }
                   ],
                   "disaggregated": false
                 }
@@ -594,7 +858,10 @@
                     "type": "number-currency",
                     "currencyCode": "USD",
                     "abbreviation": "compact",
-                    "decimalPlaces": {"type": "max", "places": 2}
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
                   }
                 }
               },
@@ -602,11 +869,16 @@
                 "showTitle": true,
                 "title": "Total Predicted Recaptured Revenue",
                 "showDescription": true,
-                "description": "The recoverable slice of the $4.3M lost-sales exposure — what acting on these recommendations is worth."
+                "description": "The recoverable slice of the $4.3M lost-sales exposure \u2014 what acting on these recommendations is worth."
               }
             }
           },
-          "position": {"x": 6, "y": 9, "width": 6, "height": 5}
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 5
+          }
         },
         {
           "widget": {
@@ -617,12 +889,30 @@
                 "query": {
                   "datasetName": "ds_recovery",
                   "fields": [
-                    {"name": "store_name", "expression": "`store_name`"},
-                    {"name": "product_name", "expression": "`product_name`"},
-                    {"name": "recommended_move", "expression": "`recommended_move`"},
-                    {"name": "recommended_source_store_id", "expression": "`recommended_source_store_id`"},
-                    {"name": "predicted_recaptured_usd", "expression": "`predicted_recaptured_usd`"},
-                    {"name": "predicted_net_value_usd", "expression": "`predicted_net_value_usd`"}
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "recommended_move",
+                      "expression": "`recommended_move`"
+                    },
+                    {
+                      "name": "recommended_source_store_id",
+                      "expression": "`recommended_source_store_id`"
+                    },
+                    {
+                      "name": "predicted_recaptured_usd",
+                      "expression": "`predicted_recaptured_usd`"
+                    },
+                    {
+                      "name": "predicted_net_value_usd",
+                      "expression": "`predicted_net_value_usd`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -633,10 +923,22 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  {"fieldName": "store_name", "displayName": "Store"},
-                  {"fieldName": "product_name", "displayName": "Product"},
-                  {"fieldName": "recommended_move", "displayName": "Move"},
-                  {"fieldName": "recommended_source_store_id", "displayName": "Source Store"},
+                  {
+                    "fieldName": "store_name",
+                    "displayName": "Store"
+                  },
+                  {
+                    "fieldName": "product_name",
+                    "displayName": "Product"
+                  },
+                  {
+                    "fieldName": "recommended_move",
+                    "displayName": "Move"
+                  },
+                  {
+                    "fieldName": "recommended_source_store_id",
+                    "displayName": "Source Store"
+                  },
                   {
                     "fieldName": "predicted_recaptured_usd",
                     "displayName": "Predicted Recaptured ($)",
@@ -644,7 +946,10 @@
                       "type": "number-currency",
                       "currencyCode": "USD",
                       "abbreviation": "compact",
-                      "decimalPlaces": {"type": "max", "places": 2}
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
                     }
                   },
                   {
@@ -654,7 +959,10 @@
                       "type": "number-currency",
                       "currencyCode": "USD",
                       "abbreviation": "compact",
-                      "decimalPlaces": {"type": "max", "places": 2}
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
                     }
                   }
                 ]
@@ -667,7 +975,12 @@
               }
             }
           },
-          "position": {"x": 0, "y": 14, "width": 12, "height": 6}
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 6
+          }
         }
       ]
     },
@@ -685,7 +998,12 @@
                 "name": "q_exposure_climate",
                 "query": {
                   "datasetName": "ds_exposure",
-                  "fields": [{"name": "climate_zone", "expression": "`climate_zone`"}],
+                  "fields": [
+                    {
+                      "name": "climate_zone",
+                      "expression": "`climate_zone`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               },
@@ -693,7 +1011,12 @@
                 "name": "q_positions_climate",
                 "query": {
                   "datasetName": "ds_positions",
-                  "fields": [{"name": "climate_zone", "expression": "`climate_zone`"}],
+                  "fields": [
+                    {
+                      "name": "climate_zone",
+                      "expression": "`climate_zone`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               }
@@ -703,14 +1026,30 @@
               "widgetType": "filter-multi-select",
               "encodings": {
                 "fields": [
-                  {"fieldName": "climate_zone", "displayName": "Climate Zone (Exposure)", "queryName": "q_exposure_climate"},
-                  {"fieldName": "climate_zone", "displayName": "Climate Zone (Positions)", "queryName": "q_positions_climate"}
+                  {
+                    "fieldName": "climate_zone",
+                    "displayName": "Climate Zone (Exposure)",
+                    "queryName": "q_exposure_climate"
+                  },
+                  {
+                    "fieldName": "climate_zone",
+                    "displayName": "Climate Zone (Positions)",
+                    "queryName": "q_positions_climate"
+                  }
                 ]
               },
-              "frame": {"showTitle": true, "title": "Climate Zone"}
+              "frame": {
+                "showTitle": true,
+                "title": "Climate Zone"
+              }
             }
           },
-          "position": {"x": 0, "y": 0, "width": 3, "height": 2}
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
         },
         {
           "widget": {
@@ -720,7 +1059,12 @@
                 "name": "q_exposure_region",
                 "query": {
                   "datasetName": "ds_exposure",
-                  "fields": [{"name": "region", "expression": "`region`"}],
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               },
@@ -728,7 +1072,12 @@
                 "name": "q_positions_region",
                 "query": {
                   "datasetName": "ds_positions",
-                  "fields": [{"name": "region", "expression": "`region`"}],
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               }
@@ -738,14 +1087,30 @@
               "widgetType": "filter-multi-select",
               "encodings": {
                 "fields": [
-                  {"fieldName": "region", "displayName": "Region (Exposure)", "queryName": "q_exposure_region"},
-                  {"fieldName": "region", "displayName": "Region (Positions)", "queryName": "q_positions_region"}
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region (Exposure)",
+                    "queryName": "q_exposure_region"
+                  },
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region (Positions)",
+                    "queryName": "q_positions_region"
+                  }
                 ]
               },
-              "frame": {"showTitle": true, "title": "Region"}
+              "frame": {
+                "showTitle": true,
+                "title": "Region"
+              }
             }
           },
-          "position": {"x": 3, "y": 0, "width": 3, "height": 2}
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
         },
         {
           "widget": {
@@ -755,7 +1120,12 @@
                 "name": "q_exposure_cat",
                 "query": {
                   "datasetName": "ds_exposure",
-                  "fields": [{"name": "category", "expression": "`category`"}],
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               },
@@ -763,7 +1133,12 @@
                 "name": "q_positions_cat",
                 "query": {
                   "datasetName": "ds_positions",
-                  "fields": [{"name": "category", "expression": "`category`"}],
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               }
@@ -773,14 +1148,30 @@
               "widgetType": "filter-multi-select",
               "encodings": {
                 "fields": [
-                  {"fieldName": "category", "displayName": "Category (Exposure)", "queryName": "q_exposure_cat"},
-                  {"fieldName": "category", "displayName": "Category (Positions)", "queryName": "q_positions_cat"}
+                  {
+                    "fieldName": "category",
+                    "displayName": "Category (Exposure)",
+                    "queryName": "q_exposure_cat"
+                  },
+                  {
+                    "fieldName": "category",
+                    "displayName": "Category (Positions)",
+                    "queryName": "q_positions_cat"
+                  }
                 ]
               },
-              "frame": {"showTitle": true, "title": "Category"}
+              "frame": {
+                "showTitle": true,
+                "title": "Category"
+              }
             }
           },
-          "position": {"x": 6, "y": 0, "width": 3, "height": 2}
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
         },
         {
           "widget": {
@@ -790,7 +1181,12 @@
                 "name": "q_exposure_status",
                 "query": {
                   "datasetName": "ds_exposure",
-                  "fields": [{"name": "position_status", "expression": "`position_status`"}],
+                  "fields": [
+                    {
+                      "name": "position_status",
+                      "expression": "`position_status`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               },
@@ -798,7 +1194,12 @@
                 "name": "q_positions_status",
                 "query": {
                   "datasetName": "ds_positions",
-                  "fields": [{"name": "position_status", "expression": "`position_status`"}],
+                  "fields": [
+                    {
+                      "name": "position_status",
+                      "expression": "`position_status`"
+                    }
+                  ],
                   "disaggregated": false
                 }
               }
@@ -808,31 +1209,68 @@
               "widgetType": "filter-multi-select",
               "encodings": {
                 "fields": [
-                  {"fieldName": "position_status", "displayName": "Status (Exposure)", "queryName": "q_exposure_status"},
-                  {"fieldName": "position_status", "displayName": "Status (Positions)", "queryName": "q_positions_status"}
+                  {
+                    "fieldName": "position_status",
+                    "displayName": "Status (Exposure)",
+                    "queryName": "q_exposure_status"
+                  },
+                  {
+                    "fieldName": "position_status",
+                    "displayName": "Status (Positions)",
+                    "queryName": "q_positions_status"
+                  }
                 ]
               },
-              "frame": {"showTitle": true, "title": "Position Status"}
+              "frame": {
+                "showTitle": true,
+                "title": "Position Status"
+              }
             }
           },
-          "position": {"x": 9, "y": 0, "width": 3, "height": 2}
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
         }
       ]
     }
   ],
   "uiSettings": {
     "theme": {
-      "canvasBackgroundColor": {"light": "#F5F7FB", "dark": "#0F1419"},
-      "widgetBackgroundColor": {"light": "#FFFFFF", "dark": "#161B22"},
-      "widgetBorderColor": {"light": "#FFFFFF", "dark": "#161B22"},
-      "fontColor": {"light": "#1F2530", "dark": "#E8ECF0"},
-      "selectionColor": {"light": "#4F7CE3", "dark": "#8ACAFF"},
-      "visualizationColors": ["#094074","#3C6997","#5ADBFF","#FFB020","#E5484D"],
+      "canvasBackgroundColor": {
+        "light": "#F5F7FB",
+        "dark": "#0F1419"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#161B22"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#161B22"
+      },
+      "fontColor": {
+        "light": "#1F2530",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#4F7CE3",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#094074",
+        "#3C6997",
+        "#5ADBFF",
+        "#FFB020",
+        "#E5484D"
+      ],
       "widgetHeaderAlignment": "LEFT"
     },
     "genieSpace": {
       "isEnabled": true,
-      "overrideId": "01f1a209553610cb9844239e82476ede",
+      "overrideId": "01f1a20bb034191399b4d5434e27011a",
       "enablementMode": "ENABLED"
     }
   }

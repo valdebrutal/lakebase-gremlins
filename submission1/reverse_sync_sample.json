@@ -1,0 +1,58 @@
+[
+  {
+    "_pg_change_type": "insert",
+    "_pg_lsn": "121126616",
+    "_pg_xid": "0",
+    "_timestamp": "2026-08-27T12:32:36.419",
+    "_sort_by": "0",
+    "id": "1",
+    "store_id": "STR-001",
+    "product_id": "SKU-APP-04412",
+    "status": "APPROVED",
+    "approved_by": "ops.manager@northpeak.com",
+    "priority": "1",
+    "_note": "Initial insert captured in CDC snapshot"
+  },
+  {
+    "_pg_change_type": "insert",
+    "_pg_lsn": "121126616",
+    "_pg_xid": "0",
+    "_timestamp": "2026-08-27T12:32:36.419",
+    "_sort_by": "1",
+    "id": "2",
+    "store_id": "STR-003",
+    "product_id": "SKU-APP-04412",
+    "status": "DRAFT",
+    "approved_by": null,
+    "priority": "2",
+    "_note": "Initial insert — status was DRAFT"
+  },
+  {
+    "_pg_change_type": "update_preimage",
+    "_pg_lsn": "121183312",
+    "_pg_xid": "2100",
+    "_timestamp": "2026-08-27T12:34:18.535",
+    "_sort_by": "5",
+    "id": "2",
+    "store_id": "STR-003",
+    "product_id": "SKU-APP-04412",
+    "status": "DRAFT",
+    "approved_by": null,
+    "priority": "2",
+    "_note": "Before-image of UPDATE — status=DRAFT, approved_by=null"
+  },
+  {
+    "_pg_change_type": "update_postimage",
+    "_pg_lsn": "121183312",
+    "_pg_xid": "2100",
+    "_timestamp": "2026-08-27T12:34:18.537",
+    "_sort_by": "6",
+    "id": "2",
+    "store_id": "STR-003",
+    "product_id": "SKU-APP-04412",
+    "status": "APPROVED",
+    "approved_by": "auto.approver@northpeak.com",
+    "priority": "2",
+    "_note": "After-image of UPDATE — status=APPROVED, approved_by set. SCD2 history confirmed."
+  }
+]
