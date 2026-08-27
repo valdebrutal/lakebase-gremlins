@@ -22,6 +22,7 @@
     ]
   },
   "created_resources": {
-    "pipeline_id": "6fa3e43e-de1f-4b54-9cd9-ede31f1246d9"
+    "pipeline_id": "6fa3e43e-de1f-4b54-9cd9-ede31f1246d9",
+    "metric_view_name": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"
   }
 }
