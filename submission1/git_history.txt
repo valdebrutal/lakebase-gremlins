@@ -1,4 +1,6 @@
-* 8ac29c7 (HEAD -> milestone-4-lakebase) feat(lakebase): complete Build 1 evidence — reverse sync, search, core query, branch
+* b0fb494 (HEAD -> milestone-4-lakebase) fix(lakebase-search): replace pgvector+FTS substitute with real lakebase_text BM25 + lakebase_vector ANN
+* 723640d docs(lakebase): add README + git_history for Build 1 submission
+* 8ac29c7 feat(lakebase): complete Build 1 evidence — reverse sync, search, core query, branch
 *   6f224f7 Merge lakebase-dev: promote Build 1 migration (priority column) to main
 |\  
 | * d534306 (lakebase-dev) feat(lakebase): add priority migration and synced-table evidence for Build 1
