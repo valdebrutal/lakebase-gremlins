@@ -36,6 +36,9 @@ variables:
   schema:
     description: Schema for the demo tables + the raw_data volume (created by this bundle).
     default: northpeak_retail
+  warehouse_id:
+    description: SQL warehouse that backs the dashboard datasets and the Genie space.
+    default: eeaad8547b3c3ab3
 
 resources:
   schemas:
@@ -66,6 +69,23 @@ resources:
       libraries:
         - glob:
             include: ./transformation/**
+
+  genie_spaces:
+    northpeak_genie:
+      title: "NorthPeak Store Operations"
+      description: "Ask about the cold-snap stockout/markdown story: lost-sales & markdown exposure, where we're short (North) vs over-stocked (South) on the 5 cold-weather SKUs, and the ranked recovery move per shortfall."
+      warehouse_id: ${var.warehouse_id}
+      parent_path: ${workspace.root_path}
+      file_path: ./genie_space.json
+
+  dashboards:
+    northpeak_dashboard:
+      display_name: "NorthPeak Store Operations"
+      warehouse_id: ${var.warehouse_id}
+      parent_path: ${workspace.root_path}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${resources.schemas.demo_schema.name}
+      file_path: ./dashboard.lvdash.json
 
   jobs:
     northpeak_setup:
