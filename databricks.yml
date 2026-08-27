@@ -52,6 +52,21 @@ resources:
       volume_type: MANAGED
       comment: "Raw parquet landing zone — generate_data.py writes here; the SDP silver you build reads it via read_files()."
 
+  pipelines:
+    northpeak_operations:
+      name: "[Workshop] NorthPeak Retail — operations pipeline"
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.demo_schema.name}
+      serverless: true
+      photon: true
+      channel: current
+      configuration:
+        catalog: ${var.catalog}
+        schema: ${resources.schemas.demo_schema.name}
+      libraries:
+        - glob:
+            include: ./transformation/**
+
   jobs:
     northpeak_setup:
       name: "[Workshop] NorthPeak Retail — generate data"
