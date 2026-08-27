@@ -23,6 +23,9 @@
   },
   "created_resources": {
     "pipeline_id": "6fa3e43e-de1f-4b54-9cd9-ede31f1246d9",
-    "metric_view_name": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"
+    "metric_view_name": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position",
+    "genie_space_id": "01f1a209553610cb9844239e82476ede",
+    "dashboard_id": "01f1a209bba11226a6d51f4ebf93e089",
+    "dashboard_url": "https://fevm-perma-vm.cloud.databricks.com/sql/dashboardsv3/01f1a209bba11226a6d51f4ebf93e089"
   }
 }
