@@ -26,12 +26,13 @@ bundle:
 # root — that layer isn't configurable — so the source lands under
 # <root_path>/files/.)
 workspace:
+  host: https://fevm-perma-vm.cloud.databricks.com
   root_path: /Workspace/Users/${workspace.current_user.userName}/northpeak-retail-workshop
 
 variables:
   catalog:
-    description: Unity Catalog for the workshop data (must already exist / you can create it).
-    default: dbdemos_templates
+    description: Unity Catalog for the workshop data (must already exist — this bundle only creates the schema/volume inside it).
+    default: perma_vm_catalog
   schema:
     description: Schema for the demo tables + the raw_data volume (created by this bundle).
     default: northpeak_retail
