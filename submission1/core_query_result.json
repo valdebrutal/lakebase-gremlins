@@ -1,0 +1,12 @@
+[
+  {"store_id":"STORE-0034","product_id":"SKU-APP-04412","region":"Midwest","on_hand_units":0,"lost_sales_exposure_usd":76834.28,"nearest_surplus_store_id":null,"nearest_surplus_on_hand":null,"surplus_distance_km":null},
+  {"store_id":"STORE-0006","product_id":"SKU-APP-04412","region":"West","on_hand_units":0,"lost_sales_exposure_usd":70431.43,"nearest_surplus_store_id":"STORE-0377","nearest_surplus_on_hand":833,"surplus_distance_km":100.0},
+  {"store_id":"STORE-0083","product_id":"SKU-APP-04412","region":"Midwest","on_hand_units":0,"lost_sales_exposure_usd":68297.14,"nearest_surplus_store_id":null,"nearest_surplus_on_hand":null,"surplus_distance_km":null},
+  {"store_id":"STORE-0043","product_id":"SKU-APP-04412","region":"West","on_hand_units":0,"lost_sales_exposure_usd":67230.00,"nearest_surplus_store_id":"STORE-0377","nearest_surplus_on_hand":833,"surplus_distance_km":100.3},
+  {"store_id":"STORE-0011","product_id":"SKU-APP-04412","region":"Midwest","on_hand_units":0,"lost_sales_exposure_usd":65095.72,"nearest_surplus_store_id":null,"nearest_surplus_on_hand":null,"surplus_distance_km":null},
+  {"store_id":"STORE-0053","product_id":"SKU-APP-04412","region":"Midwest","on_hand_units":0,"lost_sales_exposure_usd":65095.72,"nearest_surplus_store_id":null,"nearest_surplus_on_hand":null,"surplus_distance_km":null},
+  {"store_id":"STORE-0065","product_id":"SKU-APP-04412","region":"West","on_hand_units":0,"lost_sales_exposure_usd":65095.72,"nearest_surplus_store_id":"STORE-0377","nearest_surplus_on_hand":833,"surplus_distance_km":100.0},
+  {"store_id":"STORE-0023","product_id":"SKU-APP-04412","region":"West","on_hand_units":0,"lost_sales_exposure_usd":65095.72,"nearest_surplus_store_id":"STORE-0041","nearest_surplus_on_hand":768,"surplus_distance_km":1499.4},
+  {"store_id":"STORE-0003","product_id":"SKU-APP-04412","region":"Midwest","on_hand_units":0,"lost_sales_exposure_usd":64028.57,"nearest_surplus_store_id":null,"nearest_surplus_on_hand":null,"surplus_distance_km":null},
+  {"store_id":"STORE-0045","product_id":"SKU-APP-04412","region":"West","on_hand_units":0,"lost_sales_exposure_usd":64028.57,"nearest_surplus_store_id":"STORE-0041","nearest_surplus_on_hand":768,"surplus_distance_km":1496.7}
+]

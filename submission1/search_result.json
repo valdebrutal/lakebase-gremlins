@@ -1,0 +1,10 @@
+[
+  {"store_id":"STORE-0090","product_name":"Ridgeline Insulated Jacket","region":"West","on_hand_units":635,"merch_note":"warm-weather store, cold gear not selling","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8660,"hybrid_score":0.5245},
+  {"store_id":"STORE-0023","product_name":"Summit Down Parka","region":"West","on_hand_units":0,"merch_note":"warm-weather store, cold gear not selling","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8660,"hybrid_score":0.5245},
+  {"store_id":"STORE-0011","product_name":"Summit Down Parka","region":"Midwest","on_hand_units":0,"merch_note":"no movement in three weeks","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8165,"hybrid_score":0.4948},
+  {"store_id":"STORE-0004","product_name":"Frostguard Thermal Gloves","region":"South-Central","on_hand_units":784,"merch_note":"no movement in three weeks","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8165,"hybrid_score":0.4948},
+  {"store_id":"STORE-0377","product_name":"Alpine Wool Beanie","region":"West","on_hand_units":939,"merch_note":"no movement in three weeks","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8165,"hybrid_score":0.4948},
+  {"store_id":"STORE-0102","product_name":"Frostguard Thermal Gloves","region":"South-Central","on_hand_units":883,"merch_note":"no movement in three weeks","markdown_risk_score":1.0,"fts_score":0.0122,"vec_score":0.8165,"hybrid_score":0.4948},
+  {"store_id":"STORE-0055","product_name":"Camp Stove Classic","region":"South-Central","on_hand_units":12,"merch_note":"steady turns","markdown_risk_score":0.3,"fts_score":0.0000,"vec_score":0.5774,"hybrid_score":0.3464},
+  {"store_id":"STORE-0201","product_name":"Sneaker 510","region":"Midwest","on_hand_units":105,"merch_note":"steady turns","markdown_risk_score":0.2,"fts_score":0.0000,"vec_score":0.5774,"hybrid_score":0.3464}
+]

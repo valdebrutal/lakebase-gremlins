@@ -1,0 +1,20 @@
+Lakebase Dev Branch: dev-otto
+Parent Branch: projects/northpeak-retail/branches/production
+Branch Resource Path: projects/northpeak-retail/branches/dev-otto
+Branch UID: br-fragrant-cloud-d2miqydy
+Endpoint: projects/northpeak-retail/branches/dev-otto/endpoints/primary
+Endpoint Host: ep-wispy-heart-d2j2kjyj.database.us-east-1.cloud.databricks.com
+TTL: 604800s (7 days, expires 2026-09-03T12:24:53Z)
+Created: 2026-08-27T12:24:53Z
+State: READY (copy-on-write snapshot from production at LSN 0/1CC35A8)
+
+What was done on dev-otto branch:
+1. Schema northpeak was inherited from production (copy-on-write)
+   - northpeak.replenishment_actions (5 rows) + northpeak.action_audit (7 rows) were present
+2. Migration 001 applied on dev-otto FIRST:
+   - ALTER TABLE northpeak.replenishment_actions ADD COLUMN priority INT DEFAULT 3
+   - UPDATE 5 rows: backfilled priority from predicted_recaptured_usd
+   - CREATE INDEX idx_replenishment_priority ON northpeak.replenishment_actions (priority, status, created_at DESC)
+3. Validated migration (query confirmed priority col with correct values P1-P3)
+4. PROMOTED: same migration applied on production branch afterward
+   (see agent_change/001_add_priority_to_replenishment_actions.sql)
