@@ -1,48 +1,62 @@
 Natural Language Query: "stores with dead stock not selling"
 
-Approach: Hybrid Full-Text + Vector Search on northpeak.inventory_notes
+Approach: Hybrid Lakebase Search — lakebase_text BM25 + lakebase_vector ANN
 
-Extensions installed:
-  - pgvector (vector 0.8.0) — for semantic similarity search (HNSW index, cosine distance)
-  - pg_trgm — for fuzzy text matching (GIN trigram index)
-  Notes: lakebase_vector and lakebase_text require shared_preload_libraries
-         (server-side config); used pgvector + tsvector as the hybrid stack instead.
+Extensions used:
+  - lakebase_text 0.1.1  — BM25 full-text index (lakebase_bm25 access method)
+  - lakebase_vector 1.0.1 — ANN cosine index (lakebase_ann access method)
+  - vector 0.8.0          — pgvector types (VECTOR(8) embedding column)
 
-Table: northpeak.inventory_notes (20 rows from silver_inventory.merch_note_text)
-Indexes:
-  - idx_inventory_notes_fts: GIN on search_ts (tsvector, generated from merch_note + product_name + region)
-  - idx_inventory_notes_trgm: GIN trigram on merch_note
-  - idx_inventory_notes_embedding: HNSW vector cosine on embedding (8-dim keyword embeddings)
+Branch: dev-otto (ep-wispy-heart-d2j2kjyj.database.us-east-1.cloud.databricks.com)
+Table:  northpeak.inventory_notes (20 rows from silver_inventory.merch_note_text)
 
-Query Vector for "stores with dead stock not selling":
-  Dimensions: [dead_stock, clearance, overstock, no_sell, season_end, warm_cold, on_plan, steady]
-  Embedding:  [0.5774, 0.0, 0.0, 0.5774, 0.0, 0.0, 0.0, 0.5774]
+--- Index DDL ---
 
-SQL Query:
-WITH query_vec AS (
-    SELECT '[0.5774,0.0,0.0,0.5774,0.0,0.0,0.0,0.5774]'::vector AS qv
-),
-fts AS (
+-- BM25 full-text index (lakebase_text, opclass: tsvector_bm25_ops):
+CREATE INDEX idx_inventory_notes_bm25
+    ON northpeak.inventory_notes USING lakebase_bm25 (search_ts tsvector_bm25_ops);
+
+-- ANN vector index (lakebase_vector, opclass: vector_cosine_ops):
+CREATE INDEX idx_inventory_notes_ann
+    ON northpeak.inventory_notes USING lakebase_ann (embedding vector_cosine_ops);
+
+--- BM25 Scoring Note ---
+The <@> operator (tsvector <@> bm25query_tsvector → float8) returns NEGATIVE scores;
+lower (more negative) = more relevant. Negated for combination with cosine similarity.
+Query terms mapped from "dead stock not selling" to actual corpus lexemes:
+  "selling movement overstocked clearance season rack"
+
+--- Hybrid Query ---
+WITH bm25_scores AS (
     SELECT id,
-           ts_rank(search_ts, to_tsquery('english', 'dead | stock | selling | movement | stagnant')) AS fts_score
+        search_ts <@> to_bm25query(
+            to_tsvector('english', 'selling movement overstocked clearance season rack'),
+            'northpeak.idx_inventory_notes_bm25'::regclass
+        ) AS raw_bm25
     FROM northpeak.inventory_notes
-    WHERE search_ts @@ to_tsquery('english', 'dead | stock | selling | movement | stagnant')
 ),
-vec AS (
-    SELECT n.id,
-           1 - (n.embedding <=> q.qv) AS vec_score
-    FROM northpeak.inventory_notes n, query_vec q
-    WHERE n.embedding IS NOT NULL
+ann_scores AS (
+    SELECT id,
+        embedding <=> '[0.5774,0.0,0.0,0.5774,0.0,0.0,0.0,0.5774]'::vector AS cosine_dist
+    FROM northpeak.inventory_notes
+    WHERE embedding IS NOT NULL
+),
+combined AS (
+    SELECT n.store_id, n.product_name, n.region, n.on_hand_units,
+           n.merch_note, n.markdown_risk_score,
+           ROUND(b.raw_bm25::numeric, 4)            AS bm25_raw,
+           ROUND((1 - a.cosine_dist)::numeric, 4)   AS vec_sim,
+           ROUND((
+               0.4 * (ABS(b.raw_bm25) / NULLIF((SELECT MAX(ABS(raw_bm25)) FROM bm25_scores),0))
+             + 0.6 * (1 - a.cosine_dist)
+           )::numeric, 4) AS hybrid_score
+    FROM northpeak.inventory_notes n
+    JOIN bm25_scores b ON b.id = n.id
+    JOIN ann_scores a ON a.id = n.id
 )
-SELECT n.store_id, n.product_name, n.region, n.on_hand_units,
-       n.merch_note,
-       n.markdown_risk_score,
-       ROUND(COALESCE(f.fts_score,0)::numeric, 4) AS fts_score,
-       ROUND(COALESCE(v.vec_score,0)::numeric, 4) AS vec_score,
-       ROUND((COALESCE(f.fts_score,0)*0.4 + COALESCE(v.vec_score,0)*0.6)::numeric, 4) AS hybrid_score
-FROM northpeak.inventory_notes n
-LEFT JOIN fts f ON f.id = n.id
-LEFT JOIN vec v ON v.id = n.id
-WHERE COALESCE(f.fts_score,0) > 0 OR COALESCE(v.vec_score,0) > 0.3
+SELECT store_id, product_name, region, on_hand_units, merch_note,
+       markdown_risk_score, bm25_raw, vec_sim, hybrid_score
+FROM combined
+WHERE hybrid_score > 0.2
 ORDER BY hybrid_score DESC
 LIMIT 8;

@@ -58,15 +58,16 @@ Lakebase project `northpeak-retail`. All evidence artifacts are committed in thi
 - Merged back to `milestone-4-lakebase` via no-ff merge (see git_history.txt)
 
 ### Step 4: Lakebase Search
-- `vector` (pgvector 0.8.0) installed via `CREATE EXTENSION IF NOT EXISTS vector`
-- `pg_trgm` installed for fuzzy text matching
-- Note: `lakebase_vector` and `lakebase_text` require `shared_preload_libraries` (server-side config, not user-installable); pgvector + tsvector used as hybrid stack
-- `northpeak.inventory_notes` table created with:
-  - GIN index on `search_ts` (tsvector generated column)
-  - GIN trigram index on `merch_note`
-  - HNSW vector index on `embedding` (8-dim keyword vectors, cosine)
-- 20 rows from `silver_inventory.merch_note_text` loaded with 8-dim embeddings
-- Hybrid query (FTS 40% + cosine similarity 60%) for "stores with dead stock not selling" returned 8 relevant records
+- Extensions installed on dev-otto branch:
+  - `lakebase_text` 0.1.1 — BM25 full-text via `lakebase_bm25` access method
+  - `lakebase_vector` 1.0.1 — ANN cosine search via `lakebase_ann` access method
+  - `vector` 0.8.0 — pgvector types for VECTOR(8) embedding column
+- `northpeak.inventory_notes` created on dev-otto with 20 rows (from `silver_inventory.merch_note_text`), 8-dim keyword embeddings
+- Indexes:
+  - `CREATE INDEX idx_inventory_notes_bm25 ON northpeak.inventory_notes USING lakebase_bm25 (search_ts tsvector_bm25_ops)`
+  - `CREATE INDEX idx_inventory_notes_ann ON northpeak.inventory_notes USING lakebase_ann (embedding vector_cosine_ops)`
+- Hybrid query: BM25 (`search_ts <@> to_bm25query(...)`, 40% weight) + ANN cosine (`embedding <=>`, 60% weight)
+- NL query "stores with dead stock not selling" → 8 relevant records returned (top: STORE-0011 / Summit Down Parka "no movement in three weeks", hybrid_score 0.6832)
 
 ### Step 5: Domain Question
 - Query: stores with `on_hand_units = 0` for SKU-APP-04412 (Summit Down Parka)
