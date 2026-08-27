@@ -275,6 +275,40 @@ export const opsActions = appSchema.table(
 );
 
 // ============================================================================
+// workflow_events — the Lakebase workflow-state + observability table.
+// Append-only log of TRIGGER events (the scheduled scorer re-ranking the view
+// — a system update, not a person opening it) and DECISION events (a recovery
+// action committed). Every row is timestamped; decision rows link to the
+// ops_actions id + the store×SKU so the decision chain is traceable.
+// ============================================================================
+export const workflowEvents = appSchema.table(
+  'workflow_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // 'view_scored' (scheduled trigger) | 'decision_committed' (writeback).
+    eventType: text('event_type', {
+      enum: ['view_scored', 'decision_committed'],
+    }).notNull(),
+    // 'schedule' | 'system' | 'user' — schedule/system score higher than a
+    // person opening the view.
+    source: text('source', { enum: ['schedule', 'system', 'user'] }).notNull(),
+    storeId: text('store_id'),
+    productId: text('product_id'),
+    // FK-ish link to the committed action (decision rows only).
+    actionId: uuid('action_id'),
+    // Free-form structured detail: top shortfalls scored, the move approved, etc.
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('workflow_events_type_idx').on(t.eventType, t.createdAt),
+    index('workflow_events_store_idx').on(t.storeId, t.productId),
+  ],
+);
+
+// ============================================================================
 // JSONB entry shapes
 // ============================================================================
 

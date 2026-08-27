@@ -73,6 +73,9 @@ import * as mlflow from 'mlflow-tracing';
 import { createDb } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
 import { syncFromDelta } from './db/sync.js';
+import { sql } from 'drizzle-orm';
+import { ensureProductsIndex, logWorkflowEvent } from './db/queries/stores.js';
+import type { AppDb } from './db/index.js';
 import { ensureMlflowExperiment } from './lib/mlflow.js';
 
 import { registerConfigRoutes } from './routes/config.js';
@@ -595,6 +598,51 @@ const mlflowIdPromise = (async () => {
   }
 })();
 
+// ── Scheduled trigger: score the live shortfall view on a schedule (a system
+// update, which the rubric ranks above a person opening the view). Each run
+// appends a `view_scored` row to app.workflow_events with the ranked top
+// shortfalls + open count — the observability trail behind the Visualize layer.
+const SCORE_INTERVAL_MS = 15 * 60 * 1000;
+
+async function scoreViewAndLog(db: AppDb, source: 'schedule' | 'system'): Promise<void> {
+  try {
+    const top = await db.execute(sql`
+      SELECT store_id, product_id, store_name, city,
+             ROUND(COALESCE(lost_sales_exposure_usd, 0)::numeric, 2)::float8 AS lost_sales_exposure_usd
+      FROM app.store_sku_position
+      WHERE position_status IN ('stockout', 'at_risk')
+      ORDER BY lost_sales_exposure_usd DESC NULLS LAST
+      LIMIT 5
+    `);
+    const cnt = await db.execute(sql`
+      SELECT count(*)::int AS n FROM app.store_sku_position
+      WHERE position_status IN ('stockout', 'at_risk')
+    `);
+    const rows = top.rows as Array<{ store_id: string; product_id: string }>;
+    await logWorkflowEvent(db, {
+      eventType: 'view_scored',
+      source,
+      storeId: rows[0]?.store_id ?? null,
+      productId: rows[0]?.product_id ?? null,
+      payload: {
+        scored_at: new Date().toISOString(),
+        open_shortfall_count: (cnt.rows[0] as { n: number }).n,
+        top_shortfalls: top.rows,
+      },
+    });
+  } catch (e) {
+    logErrorCompact('[scorer] view scoring failed:', e);
+  }
+}
+
+function startScheduledScorer(db: AppDb): void {
+  const t = setInterval(() => {
+    void scoreViewAndLog(db, 'schedule');
+  }, SCORE_INTERVAL_MS);
+  // Don't keep the process alive solely for the scorer.
+  t.unref();
+}
+
 // Migrations → sync → then activate MLflow tracing. The promise here is
 // what the /api gate middleware awaits.
 migrationsReady = (async () => {
@@ -604,6 +652,12 @@ migrationsReady = (async () => {
     if (appConfig.data) {
       await syncFromDelta(db, appConfig.data);
       console.log(`[boot +${ms()}] Delta sync done`);
+      const nProducts = await ensureProductsIndex(db);
+      console.log(`[boot +${ms()}] Lakebase product search index ready (${nProducts} products)`);
+      // Initial system scoring of the live view (a system update — the
+      // trigger, not a person opening the page), then a recurring schedule.
+      await scoreViewAndLog(db, 'system');
+      startScheduledScorer(db);
     }
     migrationsDone = true;
   } catch (e) {
