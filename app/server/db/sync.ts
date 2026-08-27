@@ -144,7 +144,7 @@ export async function syncFromDelta(
                   recommended_source_store_id, recommended_substitute_product_id,
                   recommended_units, predicted_recaptured_usd,
                   predicted_net_value_usd,
-                  to_json(move_ranking) AS move_ranking, scored_at
+                  move_ranking, scored_at
            FROM ${fq('recoveryRecommendations')}`,
         ).catch((e) => {
           // The trainee builds this table in the ML step — until then it
@@ -294,9 +294,9 @@ export async function syncFromDelta(
   console.log(`[sync] Done in ${dt}s`);
 }
 
-/** `move_ranking` comes back as a JSON string (we `to_json(...)` it in SQL
- *  because the SQL Statements API serializes complex types as strings).
- *  Parse defensively — a malformed ranking just becomes []. */
+/** `move_ranking` is stored as a JSON string in the Gold table, so it comes
+ *  back verbatim from the SQL API. Parse defensively — a malformed ranking
+ *  just becomes []. */
 function parseMoveRanking(raw: string | null): MoveOption[] {
   if (!raw) return [];
   try {
@@ -342,7 +342,15 @@ async function execSql<T>(
     result?: {
       chunk_index: number;
       row_count: number;
-      data_array?: Array<Array<unknown>>;
+      // EXTERNAL_LINKS disposition returns presigned URLs instead of inline
+      // data_array — INLINE is capped at 25 MB, which store_sku_position
+      // (250 K rows) blows past.
+      external_links?: Array<{
+        chunk_index: number;
+        row_count: number;
+        external_link: string;
+        next_chunk_index?: number;
+      }>;
       next_chunk_index?: number;
     };
   };
@@ -355,7 +363,7 @@ async function execSql<T>(
       warehouse_id: warehouseId,
       wait_timeout: '50s',
       on_wait_timeout: 'CONTINUE',
-      disposition: 'INLINE',
+      disposition: 'EXTERNAL_LINKS',
       format: 'JSON_ARRAY',
     },
     headers: new Headers(),
@@ -399,15 +407,30 @@ async function execSql<T>(
   const rows: T[] = [];
   let chunk = cur.result;
   while (chunk) {
-    for (const row of chunk.data_array ?? []) {
-      const obj: Record<string, unknown> = {};
-      for (let i = 0; i < cols.length; i++) obj[cols[i]] = row[i];
-      rows.push(obj as T);
+    const links = chunk.external_links ?? [];
+    for (const link of links) {
+      // Presigned URL — fetch WITHOUT the Databricks auth header.
+      const resp = await fetch(link.external_link);
+      if (!resp.ok) {
+        throw new Error(
+          `[sync] external-link fetch failed: ${resp.status} ${resp.statusText}`,
+        );
+      }
+      const dataArray = (await resp.json()) as Array<Array<unknown>>;
+      for (const row of dataArray) {
+        const obj: Record<string, unknown> = {};
+        for (let i = 0; i < cols.length; i++) obj[cols[i]] = row[i];
+        rows.push(obj as T);
+      }
     }
-    if (chunk.next_chunk_index === undefined || chunk.next_chunk_index === null) break;
+    // next_chunk_index lives on the last external_links entry (falls back to
+    // the result-level field for the single-chunk case).
+    const next =
+      links.length > 0 ? links[links.length - 1].next_chunk_index : chunk.next_chunk_index;
+    if (next === undefined || next === null) break;
     chunk = (await client.apiClient.request({
       method: 'GET',
-      path: `/api/2.0/sql/statements/${cur.statement_id}/result/chunks/${chunk.next_chunk_index}`,
+      path: `/api/2.0/sql/statements/${cur.statement_id}/result/chunks/${next}`,
       headers: new Headers(),
       raw: false,
       query: {},

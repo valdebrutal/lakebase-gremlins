@@ -15,7 +15,7 @@
 -- @param catalog STRING = ai_demo_gen
 -- @param schema STRING = northpeak_retail
 SELECT
-  date_trunc('week', s.sales_date) AS week,
+  date_trunc('week', s.sale_date) AS week,
   s.climate_zone,
   CAST(SUM(s.units_sold) AS BIGINT) AS units_sold
 FROM IDENTIFIER(:catalog || '.' || :schema || '.silver_sales') s
@@ -23,6 +23,6 @@ WHERE s.product_id IN (
     'SKU-APP-04412', 'SKU-APP-04418', 'SKU-APP-04431',
     'SKU-APP-04455', 'SKU-APP-04460'
   )
-  AND s.sales_date >= date_sub(current_date(), 56)
-GROUP BY date_trunc('week', s.sales_date), s.climate_zone
+  AND s.sale_date >= date_sub(current_date(), 56)
+GROUP BY date_trunc('week', s.sale_date), s.climate_zone
 ORDER BY week
