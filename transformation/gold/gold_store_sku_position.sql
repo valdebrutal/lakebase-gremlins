@@ -42,7 +42,11 @@ SELECT
   CASE WHEN on_hand_units = 0 OR COALESCE(weeks_of_supply, 0) < 1
        THEN GREATEST(0, avg_daily_velocity * price_usd * 30) ELSE 0 END
     AS lost_sales_exposure_usd,
-  CASE WHEN COALESCE(weeks_of_supply, 0) > 8
+  -- Markdown exposure applies ONLY to over-stocked (dead-stock) positions, matching the
+  -- position_status='overstock' gate below and the spec's "for over-stocked positions".
+  -- The markdown_risk_score >= 0.6 gate excludes the many zero-velocity 'healthy' positions
+  -- (weeks_of_supply=9999 sentinel) that would otherwise inflate the measure massively.
+  CASE WHEN COALESCE(weeks_of_supply, 0) > 8 AND markdown_risk_score >= 0.6
        THEN GREATEST(0, (on_hand_units - avg_daily_velocity * 30) * price_usd * 0.3) ELSE 0 END
     AS markdown_exposure_usd,
   CASE
