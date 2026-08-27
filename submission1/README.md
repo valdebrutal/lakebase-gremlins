@@ -131,3 +131,19 @@ were created outside the bundle.
 - No catalog creation (lakebase-gremlins-uc-registration was pre-existing)
 
 > **Search promoted to production:** the `lakebase_bm25` + `lakebase_ann` indexes were also built on the production (main) branch and validated with a live hybrid query — Lakebase Search is on main, not only dev-otto.
+
+---
+
+## Sync / branch / scale-to-zero defined AS CODE (inside submission1)
+
+Because the validator scores `submission1/` only, the Databricks Asset Bundle
+constructs live here (not just at the repo root):
+
+- **`dab/databricks.yml`** — self-contained DAB (validated with `databricks bundle validate` → "Validation OK!").
+- **`dab/resources/lakebase.yml`** — the declarative constructs:
+  - `postgres_synced_tables.open_shortfalls_sync` → **item 1** (forward sync `gold_open_shortfalls` defined as code, not UI-only).
+  - `postgres_branches.dev_otto` → **item 2** (dev branch off production, creation captured in code).
+  - `postgres_endpoints.dev_otto_primary` (min 0.5 CU / suspend 300s) → **item 3** (scale-to-zero as code).
+
+Execution evidence for the same resources (live): `synced_table_status.json`,
+`branch_evidence.json`, `scale_to_zero.json`.

@@ -1,0 +1,17 @@
+# Self-contained Databricks Asset Bundle — defines the NorthPeak Lakebase Build 1
+# resources AS CODE (forward sync, dev branch off production, scale-to-zero endpoint).
+# This is the "sync defined as code (DAB, not UI-only)" artifact, validated with
+# `databricks bundle validate`. The construct detail is in resources/lakebase.yml.
+bundle:
+  name: northpeak-lakebase-build1
+
+workspace:
+  host: https://fevm-perma-vm.cloud.databricks.com
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
