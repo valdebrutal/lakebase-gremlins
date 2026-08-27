@@ -1,0 +1,169 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {"id": "10000000000000000000000000000001", "question": ["How much are we losing to stockouts, and what's our markdown exposure right now?"]},
+      {"id": "10000000000000000000000000000002", "question": ["Where are we short and where are we over-stocked? Break it down by climate zone."]},
+      {"id": "10000000000000000000000000000003", "question": ["Which products are driving both problems?"]},
+      {"id": "10000000000000000000000000000004", "question": ["Store 214 is short on the Summit Down Parka — how bad is it, and is there stock nearby?"]},
+      {"id": "10000000000000000000000000000005", "question": ["What's the best recovery move for Store 214, and how much would it recapture?"]},
+      {"id": "10000000000000000000000000000006", "question": ["Across all open shortfalls, how much could we recapture, and by which move?"]},
+      {"id": "10000000000000000000000000000007", "question": ["Which southern stores are the biggest markdown risk on these SKUs?"]}
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls"},
+      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations"},
+      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position"},
+      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"}
+    ]
+  },
+  "instructions": {
+    "example_question_sqls": [
+      {
+        "id": "20000000000000000000000000000001",
+        "question": ["How much are we losing to stockouts, and what's our markdown exposure right now?"],
+        "sql": [
+          "SELECT\n",
+          "  MEASURE(`lost_sales_exposure`) AS lost_sales_usd,\n",
+          "  MEASURE(`markdown_exposure`) AS markdown_usd\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000002",
+        "question": ["Where are we short and where are we over-stocked? Break it down by climate zone."],
+        "sql": [
+          "SELECT\n",
+          "  climate_zone,\n",
+          "  MEASURE(`stockout_count`) AS stockout_count,\n",
+          "  MEASURE(`overstock_count`) AS overstock_count\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position\n",
+          "GROUP BY ALL\n",
+          "ORDER BY climate_zone"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000003",
+        "question": ["Which products are driving both problems?"],
+        "sql": [
+          "SELECT\n",
+          "  product_name,\n",
+          "  position_status,\n",
+          "  COUNT(*) AS position_count,\n",
+          "  SUM(lost_sales_exposure_usd) AS total_lost_sales_usd,\n",
+          "  SUM(markdown_exposure_usd) AS total_markdown_usd\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position\n",
+          "WHERE position_status IN ('stockout', 'at_risk', 'overstock')\n",
+          "GROUP BY product_name, position_status\n",
+          "ORDER BY total_lost_sales_usd DESC, total_markdown_usd DESC"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000004",
+        "question": ["Store 214 is short on the Summit Down Parka — how bad is it, and is there stock nearby?"],
+        "sql": [
+          "SELECT\n",
+          "  store_id,\n",
+          "  product_id,\n",
+          "  on_hand_units,\n",
+          "  avg_daily_velocity,\n",
+          "  price_usd,\n",
+          "  lost_sales_exposure_usd,\n",
+          "  nearest_surplus_store_id,\n",
+          "  nearest_surplus_on_hand,\n",
+          "  nearest_surplus_distance_km\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls\n",
+          "WHERE store_id = 'STORE-0214'\n",
+          "  AND product_id = 'SKU-APP-04412'"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000005",
+        "question": ["What's the best recovery move for Store 214, and how much would it recapture?"],
+        "sql": [
+          "SELECT\n",
+          "  store_id,\n",
+          "  product_id,\n",
+          "  recommended_move,\n",
+          "  recommended_source_store_id,\n",
+          "  predicted_recaptured_usd,\n",
+          "  predicted_net_value_usd\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations\n",
+          "WHERE store_id = 'STORE-0214'\n",
+          "  AND product_id = 'SKU-APP-04412'\n",
+          "ORDER BY predicted_net_value_usd DESC"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000006",
+        "question": ["Across all open shortfalls, how much could we recapture, and by which move?"],
+        "sql": [
+          "SELECT\n",
+          "  recommended_move,\n",
+          "  COUNT(*) AS shortfall_count,\n",
+          "  SUM(predicted_recaptured_usd) AS total_recaptured_usd,\n",
+          "  SUM(predicted_net_value_usd) AS total_net_value_usd\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations\n",
+          "GROUP BY recommended_move\n",
+          "ORDER BY total_recaptured_usd DESC"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000007",
+        "question": ["Which southern stores are the biggest markdown risk on these SKUs?"],
+        "sql": [
+          "SELECT\n",
+          "  store_name,\n",
+          "  city,\n",
+          "  product_name,\n",
+          "  on_hand_units,\n",
+          "  weeks_of_supply,\n",
+          "  markdown_exposure_usd\n",
+          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position\n",
+          "WHERE position_status = 'overstock'\n",
+          "  AND climate_zone = 'South'\n",
+          "ORDER BY markdown_exposure_usd DESC\n",
+          "LIMIT 20"
+        ]
+      }
+    ],
+    "text_instructions": [
+      {
+        "id": "30000000000000000000000000000001",
+        "content": [
+          "You analyze NorthPeak Retail store-operations data for Dana Ruiz (SVP Retail Operations, non-technical).\n",
+          "\n",
+          "CONTEXT: An early cold snap ~3 weeks ago flipped demand for cold-weather apparel. The SAME 5 SKUs\n",
+          "(Summit Down Parka SKU-APP-04412, Ridgeline Insulated Jacket SKU-APP-04418, Timberline Fleece Hoodie SKU-APP-04431,\n",
+          "Frostguard Thermal Gloves SKU-APP-04455, Alpine Wool Beanie SKU-APP-04460) are STOCKED OUT in ~30 northern stores\n",
+          "(real demand, lost sales) while sitting as DEAD STOCK in ~30-36 southern stores per SKU (markdown clock running).\n",
+          "One misallocation, two symptoms.\n",
+          "\n",
+          "BASELINES: A healthy position has weeks_of_supply between ~1 and ~8. position_status is the single signal:\n",
+          "'stockout' (on_hand=0, still selling), 'at_risk' (<1 week supply), 'overstock' (>8 weeks + high markdown risk), 'healthy'.\n",
+          "\n",
+          "HEADLINE NUMBERS — always answer from mv_store_position (same definitions the dashboard tiles use):\n",
+          "- 'How much are we losing to stockouts?' → MEASURE(`lost_sales_exposure`)\n",
+          "- 'What is our markdown exposure?' → MEASURE(`markdown_exposure`)\n",
+          "- 'How many positions are stocked out in the North?' → MEASURE(`stockout_count`) WHERE climate_zone='North'\n",
+          "\n",
+          "INVESTIGATION FLOW for 'where are we short and where are we over-stocked, and why?':\n",
+          "1. mv_store_position → MEASURE(`stockout_count`) + MEASURE(`overstock_count`) by climate_zone → North=stockouts, South=overstock\n",
+          "2. gold_store_sku_position → divergence confined to the 5 cold_weather apparel SKUs (GROUP BY product_name, position_status)\n",
+          "3. gold_open_shortfalls WHERE store_id='STORE-0214' → hero shortfall; nearest_surplus_store_id='STORE-0377' holds units\n",
+          "4. gold_recovery_recommendations → model recommends move (transfer/expedite) + predicted recaptured $\n",
+          "Conclude + suggest: 'Want me to rank the recovery move for Store 214?'\n",
+          "\n",
+          "RECOVERY FOLLOW-UP:\n",
+          "- 'What is the best recovery move for Store 214 on the parka?' → gold_recovery_recommendations WHERE store_id='STORE-0214' AND product_id='SKU-APP-04412' → recommended_move='transfer' FROM STORE-0377, predicted_recaptured_usd, move ranking\n",
+          "- 'How much could we recapture across all open shortfalls?' → SUM(predicted_recaptured_usd) FROM gold_recovery_recommendations\n",
+          "- 'How many shortfalls are best solved by transfer vs expedite?' → GROUP BY recommended_move\n",
+          "\n",
+          "TONE: Executive-ready, specific, no jargon. Lead with the number or the answer, then the supporting detail. Always tie back to the story: cold snap → misallocation → two symptoms → recovery."
+        ]
+      }
+    ]
+  }
+}
