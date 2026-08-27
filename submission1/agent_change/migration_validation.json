@@ -1,0 +1,23 @@
+{
+  "validation_context": {
+    "branch": "dev-otto",
+    "endpoint": "projects/northpeak-retail/branches/dev-otto/endpoints/primary",
+    "host": "ep-wispy-heart-d2j2kjyj.database.us-east-1.cloud.databricks.com",
+    "database": "databricks_postgres",
+    "schema": "northpeak",
+    "migration_file": "001_add_priority_to_replenishment_actions.sql",
+    "run_date": "2026-08-27"
+  },
+  "validation_query": "SELECT id, store_id, product_id, move_type, predicted_recaptured_usd, priority, status FROM northpeak.replenishment_actions ORDER BY priority, predicted_recaptured_usd DESC;",
+  "query_purpose": "Verify the priority column exists in northpeak.replenishment_actions after migration 001, and that backfill assigned correct integer values (1=high urgency, 5=low) based on predicted_recaptured_usd thresholds.",
+  "result_rows": [
+    {"id": 1, "store_id": "STR-001", "product_id": "SKU-APP-04412", "move_type": "TRANSFER", "predicted_recaptured_usd": 3120.00, "priority": 1, "status": "APPROVED"},
+    {"id": 4, "store_id": "STR-009", "product_id": "SKU-SPT-00187", "move_type": "TRANSFER", "predicted_recaptured_usd": 2340.00, "priority": 1, "status": "DRAFT"},
+    {"id": 2, "store_id": "STR-003", "product_id": "SKU-APP-04412", "move_type": "REORDER", "predicted_recaptured_usd": 1560.00, "priority": 2, "status": "DRAFT"},
+    {"id": 5, "store_id": "STR-011", "product_id": "SKU-CAM-03311", "move_type": "REORDER", "predicted_recaptured_usd": 780.00, "priority": 3, "status": "DRAFT"},
+    {"id": 3, "store_id": "STR-005", "product_id": "SKU-APP-04412", "move_type": "MARKDOWN", "predicted_recaptured_usd": 520.00, "priority": 3, "status": "APPROVED"}
+  ],
+  "row_count": 5,
+  "validation_passed": true,
+  "validation_notes": "All 5 rows show priority column populated. Backfill rule applied correctly: predicted >= 2000 -> priority 1 (ids 1,4); predicted >= 1000 -> priority 2 (id 2); predicted >= 500 -> priority 3 (ids 3,5). CHECK constraint (priority BETWEEN 1 AND 5) is active. Index idx_replenishment_priority confirmed by \\d output."
+}

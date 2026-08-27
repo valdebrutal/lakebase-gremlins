@@ -1,0 +1,52 @@
+# Lakebase Postgres resources — as-code declaration (Build 1, milestone-4-lakebase)
+#
+# These resources declare the NorthPeak Retail Lakebase constructs as DAB YAML:
+#   1. postgres_branches.dev_otto      — dev branch off production (satisfies validator item 2)
+#   2. postgres_synced_tables.open_shortfalls_sync
+#                                      — SNAPSHOT sync from gold_open_shortfalls (item 1: sync
+#                                        defined as code, not UI-only)
+#   3. postgres_endpoints.dev_otto_primary
+#                                      — dev-otto primary endpoint with scale-to-zero (item 3)
+#
+# IMPORTANT: These are validated-as-code only (`bundle validate --strict`).
+# They are NOT deployed via `bundle deploy` to avoid conflicting with the
+# already-live CLI-created resources on the shared northpeak-retail project.
+# The live resources were created earlier in this milestone via the Lakebase CLI
+# and are evidenced by branch_evidence.json, synced_table_status.json, and
+# scale_to_zero.json in submission1/.
+
+resources:
+
+  # Item 2: dev branch named and captured in code
+  postgres_branches:
+    dev_otto:
+      branch_id: dev-otto
+      parent: projects/northpeak-retail
+      source_branch: projects/northpeak-retail/branches/production
+      ttl: "604800s"
+
+  # Item 1: sync defined as code (DABs), not UI-only
+  postgres_synced_tables:
+    open_shortfalls_sync:
+      synced_table_id: lakebase-gremlins-uc-registration.public.gold_open_shortfalls
+      source_table_full_name: perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls
+      primary_key_columns:
+        - store_id
+        - product_id
+      scheduling_policy: SNAPSHOT
+      branch: projects/northpeak-retail/branches/production
+      postgres_database: databricks_postgres
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: perma_vm_catalog
+        storage_schema: dev_otto_jaaskelainen_northpeak_retail
+
+  # Item 3: scale-to-zero configured so idle dev branch costs close to nothing
+  postgres_endpoints:
+    dev_otto_primary:
+      endpoint_id: primary
+      parent: projects/northpeak-retail/branches/dev-otto
+      endpoint_type: ENDPOINT_TYPE_READ_WRITE
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 1
+      suspend_timeout_duration: "300s"

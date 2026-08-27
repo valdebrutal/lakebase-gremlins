@@ -1,0 +1,28 @@
+{
+  "create_time": "2026-08-27T12:24:53Z",
+  "endpoint_id": "primary",
+  "name": "projects/northpeak-retail/branches/dev-otto/endpoints/primary",
+  "parent": "projects/northpeak-retail/branches/dev-otto",
+  "status": {
+    "autoscaling_limit_max_cu": 1,
+    "autoscaling_limit_min_cu": 0.5,
+    "current_state": "ACTIVE",
+    "disabled": false,
+    "endpoint_id": "primary",
+    "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+    "group": {
+      "enable_readable_secondaries": false,
+      "max": 1,
+      "min": 1
+    },
+    "hosts": {
+      "host": "ep-wispy-heart-d2j2kjyj.database.us-east-1.cloud.databricks.com",
+      "read_write_pooled_host": "ep-wispy-heart-d2j2kjyj-pooler.database.us-east-1.cloud.databricks.com"
+    },
+    "last_active_time": "2026-08-27T13:03:01Z",
+    "settings": {},
+    "suspend_timeout_duration": "300s"
+  },
+  "uid": "ep-wispy-heart-d2j2kjyj",
+  "update_time": "2026-08-27T13:26:44Z"
+}
