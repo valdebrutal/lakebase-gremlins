@@ -544,7 +544,12 @@ resources:
           sql_task:
             warehouse_id: ${var.warehouse_id}
             file:
-              path: ./gateway/sandbox_guardrail.sql
+              # Paths in resources/*.yml resolve relative to THIS file's dir
+              # (resources/), not the bundle root — verified in Task 5. So use
+              # ../ to reach the repo-root gateway/ dir. VERIFY after writing:
+              # `databricks bundle validate -t sandbox -o json` must show this
+              # path resolving under `…/files/gateway/sandbox_guardrail.sql`.
+              path: ../gateway/sandbox_guardrail.sql
 ```
 
 - [ ] **Step 3: Write `gateway/sandbox_guardrail.sql`**
@@ -598,7 +603,11 @@ resources:
     northpeak_app:
       name: northpeak-store-ops
       description: "NorthPeak Store Ops — stockout & markdown rescue."
-      source_code_path: ./app
+      # Paths in resources/*.yml resolve relative to THIS file's dir (resources/),
+      # not the bundle root — verified in Task 5. Use ../app to reach the repo-root
+      # app dir. VERIFY after writing: `databricks bundle validate -t sandbox -o json`
+      # must show source_code_path resolving under `…/files/app`.
+      source_code_path: ../app
       resources:
         - name: sql-warehouse
           sql_warehouse:
