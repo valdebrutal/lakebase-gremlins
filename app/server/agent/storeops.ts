@@ -44,7 +44,7 @@ import type { Tool } from '@openai/agents';
 import { loggedTool as tool } from './tools/logged-tool.js';
 import * as mlflow from 'mlflow-tracing';
 import { z } from 'zod';
-import { authHeaders } from '../lib/auth.js';
+import { authHeadersServicePrincipal } from '../lib/auth.js';
 import type { AppDb } from '../db/index.js';
 import {
   getShortfall,
@@ -351,7 +351,14 @@ function makeTools(ctx: AgentContext): Tool[] {
 }
 
 export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
-  const headers = await authHeaders(ctx.req);
+  // Authenticate the LLM call to the governed Unity AI Gateway endpoint
+  // (northpeak-ai-gateway) as the app SERVICE PRINCIPAL, not the viewer's OBO
+  // token. The OBO token is intermittently rejected by the gateway ("403
+  // Invalid Token") due to short TTL / per-user consent; the app SP has
+  // CAN_QUERY on the endpoint, so SP auth is reliable for every viewer. The
+  // gateway still governs the call (inference table + guardrails + usage);
+  // attribution on the LLM call becomes the app SP.
+  const headers = await authHeadersServicePrincipal();
   const bearer = headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
   // Custom fetch: fresh TCP connection per call (avoids the stale-socket 502
   // after a long ask_data hop) + strip the >64-char `input[*].id` the SDK
