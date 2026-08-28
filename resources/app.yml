@@ -1,0 +1,36 @@
+# NorthPeak Store Ops app as a first-class bundle resource. Data/model backends
+# resolve purely via bindings (names match app/app.yaml valueFrom / usage):
+#   sql-warehouse → DATABRICKS_WAREHOUSE_ID / WAREHOUSE_ID
+#   postgres      → PG* + LAKEBASE_ENDPOINT
+#   genie-space   → GENIE_SPACE_ID
+#   agent-gateway → the AI Gateway serving endpoint (SP gets CAN_QUERY)
+# Catalog/schema/AGENT_MODEL are literals in app.yaml; dashboard/pipeline IDs are
+# stamped post-deploy (finalize_sandbox.sh). dist/ is built locally before deploy.
+resources:
+  apps:
+    northpeak_app:
+      name: northpeak-store-ops
+      description: "NorthPeak Store Ops — stockout & markdown rescue."
+      # Paths in resources/*.yml resolve relative to THIS file's dir (resources/),
+      # not the bundle root — verified in Task 5. Use ../app to reach the repo-root
+      # app dir. VERIFY after writing: `databricks bundle validate -t sandbox -o json`
+      # must show source_code_path resolving under `…/files/app`.
+      source_code_path: ../app
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: postgres
+          postgres:
+            branch: projects/northpeak/branches/production
+            database: projects/northpeak/branches/production/databases/databricks_postgres
+        - name: genie-space
+          genie_space:
+            name: northpeak-genie
+            space_id: ${resources.genie_spaces.northpeak_genie.id}
+            permission: CAN_RUN
+        - name: agent-gateway
+          serving_endpoint:
+            name: northpeak-ai-gateway
+            permission: CAN_QUERY
