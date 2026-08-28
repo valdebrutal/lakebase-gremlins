@@ -44,3 +44,25 @@ env:
   # placeholder resolution.
   - name: WAREHOUSE_ID
     valueFrom: sql-warehouse
+
+  # ── Genie (binding-derived) ─────────────────────────────────────────
+  # config/app.json reads GENIE_SPACE_ID; the genie-space binding supplies it.
+  - name: GENIE_SPACE_ID
+    valueFrom: genie-space
+
+  # ── Agent LLM → the governed AI Gateway endpoint (Build 3) ──────────
+  # config/app.json agentModel = ${AGENT_MODEL:northpeak-ai-gateway}; set it
+  # explicitly. The agent-gateway binding grants the SP CAN_QUERY on it.
+  - name: AGENT_MODEL
+    value: northpeak-ai-gateway
+
+  # ── Data (literals for this deploy — otto_demo / northpeak_retail) ───
+  # Drive the boot-sync source + analytics session context so the app reads
+  # THIS bundle's gold tables, never config/app.json's ai_demo_gen default.
+  - name: DEMO_CATALOG
+    value: otto_demo
+  - name: DEMO_SCHEMA
+    value: northpeak_retail
+
+  # DASHBOARD_ID and PIPELINE_ID are stamped post-deploy by
+  # app/scripts/finalize_sandbox.sh (not bindable).
