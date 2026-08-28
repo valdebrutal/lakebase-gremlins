@@ -51,10 +51,11 @@ env:
     valueFrom: genie-space
 
   # ── Agent LLM → the governed AI Gateway endpoint (Build 3) ──────────
-  # config/app.json agentModel = ${AGENT_MODEL:northpeak-ai-gateway}; set it
-  # explicitly. The agent-gateway binding grants the SP CAN_QUERY on it.
+  # Unity AI Gateway model service — the app calls it by its fully-qualified UC
+  # name at /ai-gateway/mlflow/v1 (see storeops.ts). The app SP is granted EXECUTE
+  # on the model service (post-deploy, runbook), not a serving-endpoint binding.
   - name: AGENT_MODEL
-    value: northpeak-ai-gateway
+    value: otto_demo.northpeak_gateway.northpeak_ai_gateway
 
   # ── Data (literals for this deploy — otto_demo / northpeak_retail) ───
   # Drive the boot-sync source + analytics session context so the app reads
@@ -66,3 +67,9 @@ env:
 
   # DASHBOARD_ID and PIPELINE_ID are stamped post-deploy by
   # app/scripts/finalize_sandbox.sh (not bindable).
+# >>> finalize_sandbox stamped IDs
+  - name: DASHBOARD_ID
+    value: "01f1a2c9b90d1185a84492b1bc6366aa"
+  - name: PIPELINE_ID
+    value: "4ea2b4fa-48bb-40db-b527-1f2607212bd0"
+# <<< finalize_sandbox

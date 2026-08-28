@@ -10,7 +10,20 @@ import os, sys, pathlib, logging, argparse
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("lakebase-migrate")
-MIG_DIR = pathlib.Path(__file__).parent / "migrations"
+
+
+def _default_migrations_dir() -> pathlib.Path:
+    """Best-effort migrations dir when --migrations-dir isn't passed.
+
+    NB: a Databricks spark_python_task exec()s this file, so `__file__` is NOT
+    defined at runtime — hence --migrations-dir is the reliable path (the job
+    passes ${workspace.file_path}/lakebase/migrations). This fallback is only for
+    local runs where __file__ exists.
+    """
+    try:
+        return pathlib.Path(__file__).parent / "migrations"  # noqa: F821
+    except NameError:
+        return pathlib.Path("migrations")
 
 
 def pending_migrations(applied: set[str], all_files: list[str]) -> list[str]:
@@ -28,7 +41,8 @@ def _connect(project: str, user: str, branch: str = "production",
     ep_path = f"projects/{project}/branches/{branch}/endpoints/{endpoint}"
     ep = w.postgres.get_endpoint(name=ep_path)
     host = ep.status.hosts.host
-    cred = w.postgres.generate_database_credential(name=ep_path)
+    # NB: endpoint path is POSITIONAL here (not name=), unlike get_endpoint.
+    cred = w.postgres.generate_database_credential(ep_path)
     return psycopg.connect(
         host=host, user=user, dbname=dbname, password=cred.token,
         sslmode="require",
@@ -49,10 +63,10 @@ def _ensure_tracking(conn) -> set[str]:
     return applied
 
 
-def apply(conn, filename: str) -> None:
+def apply(conn, mig_dir: pathlib.Path, filename: str) -> None:
     """Apply one migration file in its own transaction. 002 skips gracefully."""
     import psycopg
-    sql = (MIG_DIR / filename).read_text()
+    sql = (mig_dir / filename).read_text()
     try:
         with conn.cursor() as cur:
             cur.execute(sql)
@@ -100,7 +114,17 @@ def main() -> int:
         default=os.environ.get("PGDATABASE", "databricks_postgres"),
         help="Postgres database name (env: PGDATABASE, default: databricks_postgres)",
     )
+    parser.add_argument(
+        "--migrations-dir",
+        default=os.environ.get("MIGRATIONS_DIR"),
+        help="Directory holding the *.sql migrations (job passes "
+             "${workspace.file_path}/lakebase/migrations; __file__ is undefined "
+             "in a spark_python_task).",
+    )
     args = parser.parse_args()
+
+    mig_dir = (pathlib.Path(args.migrations_dir) if args.migrations_dir
+               else _default_migrations_dir())
 
     if not args.project:
         raise SystemExit(
@@ -111,7 +135,9 @@ def main() -> int:
             "ERROR: --user / PGUSER is required but was not provided."
         )
 
-    all_files = [p.name for p in MIG_DIR.glob("*.sql")]
+    all_files = [p.name for p in mig_dir.glob("*.sql")]
+    if not all_files:
+        raise SystemExit(f"ERROR: no *.sql migrations found in {mig_dir}")
     conn = _connect(
         project=args.project,
         user=args.user,
@@ -126,11 +152,14 @@ def main() -> int:
             log.info("nothing to apply (%d migrations already applied)",
                      len(applied))
         for f in todo:
-            apply(conn, f)
+            apply(conn, mig_dir, f)
     finally:
         conn.close()
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # NB: call main() directly — do NOT sys.exit(). A spark_python_task exec()s
+    # this file in a notebook kernel where even SystemExit(0) is reported as a
+    # task failure. main() raises on real errors; a clean return ends the task OK.
+    main()

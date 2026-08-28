@@ -1,38 +1,19 @@
-# AI Gateway (Build 3) — governed serving endpoint over a Databricks-hosted FM,
-# self-contained on sandbox (no external_model, no cross-workspace, no secret).
+# AI Gateway (Build 3) — governed via a Unity AI Gateway MODEL SERVICE
+# (otto_demo.northpeak_gateway.northpeak_ai_gateway → system.ai.gpt-oss-120b).
+#
+# The model service is a Unity Catalog securable, NOT a serving endpoint / DAB
+# resource — it's created by gateway/setup_gateway.sh (`databricks ai-gateway
+# create-model-service`), like the metric view + guardrail function. The app
+# calls it at /ai-gateway/mlflow/v1 by its fully-qualified name (AGENT_MODEL).
+# Guardrails (service policies) + inference table attach to the model service and
+# require the account-level "Unity AI Gateway" beta (account console → Previews).
+# This bundle file manages only the gateway schema + the guardrail-function job.
 resources:
   schemas:
     gateway_schema:
       catalog_name: ${var.catalog}
       name: northpeak_gateway
-      comment: "Holds the AI Gateway inference table (auto-captured LLM calls)."
-
-  model_serving_endpoints:
-    northpeak_ai_gateway:
-      name: northpeak-ai-gateway
-      config:
-        served_entities:
-          - name: gpt-governed
-            entity_name: system.ai.gpt-oss-120b
-            entity_version: "1"            # from Step 1
-            min_provisioned_throughput: 0  # 0 → scale-to-zero
-            max_provisioned_throughput: 9500  # from Step 1 supported range
-      ai_gateway:
-        inference_table_config:
-          enabled: true
-          catalog_name: ${var.catalog}
-          schema_name: northpeak_gateway
-          table_name_prefix: app_gw
-        usage_tracking_config:
-          enabled: true
-        guardrails:
-          input:
-            pii:
-              behavior: BLOCK
-        rate_limits:
-          - calls: 100
-            renewal_period: minute
-            key: endpoint
+      comment: "Holds the AI Gateway inference table + the guard_block_all_data policy fn."
 
   jobs:
     gateway_setup:

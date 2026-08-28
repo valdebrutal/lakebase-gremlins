@@ -78,3 +78,132 @@ Dana Ruiz (SVP Retail Ops) opens her console and sees the cold-weather styles tw
 5. **Governed AI** — every assistant call runs through Unity AI Gateway (spend cap, guardrails, per-store logging).
 
 Full per-component detail is in `specifications/`.
+
+---
+
+## Deploying the full solution (Databricks Asset Bundle)
+
+This repo is packaged as a **DAB** (`databricks.yml` + `resources/*.yml`) so the whole
+solution stands up on a fresh workspace. **It cannot all deploy in one shot**, though —
+part of it is staged on purpose (data dependencies), and a few pieces are created by
+scripts/jobs because the platform doesn't model them as bundle resources yet. This
+section documents what actually works, in order.
+
+### What's managed how
+
+| Layer | How it's created | Why |
+|-------|------------------|-----|
+| Catalog **schema + volume**, **pipeline**, **jobs**, **dashboard**, **Genie space**, **Lakebase** project/branches/endpoint/UC-catalog/synced-table, **gateway schema**, the **app** | `bundle deploy` (DAB resources) | Native bundle resources |
+| Synthetic data → **gold tables** | `bundle run northpeak_setup` + `bundle run northpeak_operations` (pipeline) | Data steps |
+| **`northpeak.*` schema + search indexes** (in-DB SQL) | `bundle run lakebase_migrate` (job → `lakebase/apply_migrations.py`) | DABs don't run in-database SQL |
+| **`guard_block_all_data`** guardrail function | `bundle run gateway_setup` (job → `gateway/sandbox_guardrail.sql`) | UC function, not a DAB resource |
+| **Metric view** `mv_store_position` | script — `governance/mv_store_position.sql` via the SQL Statement API | Metric views aren't a DAB resource type |
+| **Unity AI Gateway model service** `…northpeak_ai_gateway` + app-SP `EXECUTE` grant | script — `gateway/setup_gateway.sh` (`databricks ai-gateway create-model-service`) | Model services are UC securables created via CLI — **confirmed not a DAB resource type** (bundle schema + DevHub docs) |
+| **Catalog** (`otto_demo`) | referenced by name (`var.catalog`) — **not** created/bound | Kept outside bundle lifecycle (no destroy risk) |
+
+### Prerequisites (once)
+
+1. **Databricks CLI** ≥ v1.12.1 with an authenticated profile for the target workspace
+   (`databricks auth login --host <workspace-url> --profile <profile>`).
+2. **Target catalog exists** and you can create schemas in it (this bundle references it
+   by name via `var.catalog`; it does not create it).
+3. **Account-level "Unity AI Gateway" beta** enabled (account console → **Previews**) —
+   required to attach guardrails / inference table to the model service.
+4. **Per-project Lakebase Search** enabled on the Postgres project — required for the
+   `002_search` migration (BM25 / ANN indexes); without it, `002` skips gracefully.
+
+The bundle ships a `sandbox` target (Azure workspace) that overrides `workspace.host`,
+`var.catalog`, and `var.warehouse_id`. Point `-t <target>` at yours.
+
+### Why it's done in pieces
+
+- **Data dependencies.** The **synced table** and the **Genie space** validate that their
+  source tables *exist* at create time, and the **app** depends on the Genie space. Those
+  tables (`gold_*`, `mv_store_position`) only exist after the pipeline + metric-view run.
+  So they must be deployed **after** the data steps, not in the first `bundle deploy`.
+- **Beta resource shapes.** The `postgres_*` bundle resources are Beta and loosely typed;
+  `bundle validate` won't catch field-shape errors, so the **first `bundle deploy` is the
+  real shape check** and may need a correction pass (the shapes in `resources/lakebase.yml`
+  are already corrected).
+- **Non-DAB pieces.** The metric view and the AI Gateway model service are created by the
+  two scripts above — they have no bundle resource type.
+
+### Deploy sequence (fresh workspace)
+
+```bash
+PROFILE=<profile>; T=<target>          # e.g. otto-sandbox / sandbox
+
+# 0. Build the app locally (dist/ ships via sync.include; the container does not build)
+cd app && ./scripts/build-app.sh && cd ..
+
+# 1. Validate
+databricks bundle validate -t $T --profile $PROFILE
+
+# 2. PASS 1 — foundation. Deploy with the data-dependent resources still commented out:
+#    postgres_synced_tables (resources/lakebase.yml), genie_spaces (databricks.yml),
+#    apps (resources/app.yml). (They need gold tables / Genie to exist first.)
+databricks bundle deploy -t $T --profile $PROFILE
+#    NB (Beta): if a postgres_* resource is rejected, correct its fields against
+#    `databricks postgres create-<x> -h` and redeploy. The project auto-creates its
+#    production branch + primary endpoint + databricks-postgres database.
+
+# 3. Data: generate raw data, then build silver/gold
+databricks bundle run northpeak_setup       -t $T --profile $PROFILE
+databricks bundle run northpeak_operations  -t $T --profile $PROFILE
+
+# 4. Metric view (script — catalog/schema-adjusted CREATE ... WITH METRICS)
+#    Run governance/mv_store_position.sql against your catalog.schema via the SQL
+#    Statement Execution API (aitools strips the YAML whitespace — use the API).
+
+# 5. In-DB migrations + guardrail function (jobs)
+databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # 001 schema; 002 search (needs the per-project Search beta)
+databricks bundle run gateway_setup    -t $T --profile $PROFILE   # guard_block_all_data UC function
+
+# 6. AI Gateway model service + app-SP EXECUTE grant (script)
+DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/setup_gateway.sh     # pass SP_CLIENT_ID after the app exists (step 8)
+
+# 7. PASS 2 — re-enable + deploy the data-dependent resources (uncomment the three
+#    from step 2), now that gold + Genie sources + the model service exist.
+databricks bundle deploy -t $T --profile $PROFILE
+
+# 8. Start the app + wire the two non-bindable IDs
+databricks bundle run northpeak_app -t $T --profile $PROFILE      # deploy+start the app
+SP=$(databricks apps get northpeak-store-ops --profile $PROFILE -o json | python3 -c "import json,sys;print(json.load(sys.stdin)['service_principal_client_id'])")
+SP_CLIENT_ID=$SP DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/setup_gateway.sh   # grant the app SP model-service EXECUTE + gold-schema USE/SELECT (needed for boot-sync)
+DATABRICKS_CONFIG_PROFILE=$PROFILE ./app/scripts/finalize_sandbox.sh            # stamp DASHBOARD_ID/PIPELINE_ID + redeploy
+databricks bundle run northpeak_app -t $T --profile $PROFILE                    # restart to pick up stamped env
+```
+
+### Gotchas learned the hard way
+
+- **App must ship `dist/` AND `drizzle/`.** `dist/`, `client/dist/`, and the generated
+  `drizzle/` migrations folder are all gitignored; the bundle force-includes them via
+  `sync.include` in `databricks.yml`. Without `dist/` the app crashes with `Cannot find
+  module dist/server.js`; without `drizzle/` the DB init fails with `No Drizzle migrations
+  folder found`. Run `npm run db:generate` (part of `build-app.sh`) so `app/drizzle/` exists
+  locally before deploy.
+- **The app SP needs read on the gold schema.** Boot-sync (Delta→Lakebase) and analytics
+  run with the app service principal's OWN credentials — not a user OBO token — so the SP
+  needs `USE CATALOG` + `USE SCHEMA` + `SELECT` on the data schema. `gateway/setup_gateway.sh`
+  grants these (alongside the model-service EXECUTE) when passed `SP_CLIENT_ID`; without them
+  boot DB init fails with `User does not have USE SCHEMA on Schema '…northpeak_retail'`.
+- **Lakebase resource-name vs connection-name.** The database resource path is
+  `…/databases/databricks-postgres` (hyphen); the Postgres connection name is
+  `databricks_postgres` (underscore).
+- **Don't re-declare auto-created Lakebase objects.** Creating a project auto-creates its
+  `production` branch, `primary` endpoint, and `databricks-postgres` database — declaring
+  them again conflicts. Adopt existing ones with `replace_existing: true` where needed.
+- **The migration runner** must not rely on `__file__` (a `spark_python_task` `exec()`s it),
+  pin `databricks-sdk>=0.133.0` (needs `w.postgres`), and must not `sys.exit()` on success
+  (SystemExit is reported as a task failure). See `lakebase/apply_migrations.py`.
+- **The app agent calls the model service directly** at `${host}/ai-gateway/mlflow/v1`
+  with `model=<fully-qualified model-service name>` (`AGENT_MODEL`) — the AppKit Model
+  Serving plugin does not call model services, hence the direct OpenAI client in
+  `app/server/agent/storeops.ts`.
+
+### Governance (UI, after the account beta is on)
+
+The model service *routes* immediately. To attach the **inference table + guardrails**:
+**AI Gateway → `otto_demo.northpeak_gateway.northpeak_ai_gateway`** → *Set Up* inference
+tables (needs an **external-storage** catalog) and the **Policies** tab (attach the
+built-in PII guardrail + the `guard_block_all_data` function as a service policy).

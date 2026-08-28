@@ -1,49 +1,28 @@
-# Lakebase Postgres control plane — declared as DAB resources so a single
-# `bundle deploy -t sandbox` stands up the whole database layer on a fresh
-# workspace. (Beta, loosely-typed resources: first deploy is the real shape
-# check — correct fields against `databricks postgres create-* -h` if rejected.)
+# Lakebase Postgres control plane — DAB resources (field shapes corrected against
+# the live API from the first deploy: project uses flat display_name, catalog uses
+# postgres_database + branch, roles use flat identity fields. The project
+# auto-creates its `production` branch + `primary` endpoint + `databricks_postgres`
+# database, so those are NOT declared here.)
 resources:
 
-  # Top-level project. Auto-creates a `production` branch + `primary` endpoint.
+  # Top-level project. Auto-creates production branch + primary endpoint + db.
   postgres_projects:
     northpeak:
       project_id: northpeak
-      spec:
-        display_name: "NorthPeak Retail"
+      display_name: "NorthPeak Retail"
 
-  # Explicit database on the production branch (default databricks_postgres).
-  postgres_databases:
-    production_db:
-      parent: projects/northpeak/branches/production
-      database_id: databricks_postgres
-
-  # UC registration catalog for this Lakebase project (Postgres → UC).
+  # UC registration catalog for this project (Postgres → UC).
   postgres_catalogs:
     northpeak_uc:
-      # NB: confirm exact field names at first deploy (create-catalog -h).
       catalog_id: northpeak_lakebase
-      parent: projects/northpeak
-      spec:
-        database: databricks_postgres
-        branch: projects/northpeak/branches/production
+      postgres_database: databricks_postgres
+      branch: projects/northpeak/branches/production
 
-  # Role: the developer (DATABRICKS_SUPERUSER). The APP service-principal role
-  # is intentionally NOT declared here — it would need
-  # ${resources.apps.northpeak_app.service_principal_client_id}, a forward
-  # reference to Task 7 that breaks this task's `bundle validate` gate
-  # (preflight ruling). The app SP gets CAN_CONNECT_AND_CREATE via its postgres
-  # binding (Task 7); its Postgres role + schema grants are created post-deploy
-  # via CLI/SQL in the runbook (Task 10) once the SP client id exists.
-  postgres_roles:
-    dev_user:
-      parent: projects/northpeak/branches/production
-      role_id: otto.jaaskelainen@databricks.com
-      spec:
-        identity_type: USER
-        postgres_role: otto.jaaskelainen@databricks.com
-        auth_method: LAKEBASE_OAUTH_V1
-        membership_roles:
-          - DATABRICKS_SUPERUSER
+  # NOTE: no postgres_roles here. The project creator (otto.jaaskelainen) already
+  # has a Postgres role with the same postgres_role name, so declaring another with
+  # the same identity fails ("role with that name already exists", even with
+  # replace_existing, which keys on role_id not the postgres_role name). The
+  # migration job runs as that creator identity, which has schema-create access.
 
   # Dev branch off production (copy-on-write), 7-day TTL.
   postgres_branches:
@@ -59,6 +38,9 @@ resources:
       endpoint_id: primary
       parent: projects/northpeak/branches/dev-otto
       endpoint_type: ENDPOINT_TYPE_READ_WRITE
+      # The dev-otto branch auto-creates a `primary` endpoint; adopt+update it
+      # (to apply scale-to-zero) instead of failing on "already exists".
+      replace_existing: true
       autoscaling_limit_min_cu: 0.5
       autoscaling_limit_max_cu: 1
       suspend_timeout_duration: "300s"

@@ -13,10 +13,10 @@
   },
   "data_sources": {
     "tables": [
-      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls"},
-      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations"},
-      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position"},
-      {"identifier": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"}
+      {"identifier": "otto_demo.northpeak_retail.gold_open_shortfalls"},
+      {"identifier": "otto_demo.northpeak_retail.gold_recovery_recommendations"},
+      {"identifier": "otto_demo.northpeak_retail.gold_store_sku_position"},
+      {"identifier": "otto_demo.northpeak_retail.mv_store_position"}
     ]
   },
   "instructions": {
@@ -28,7 +28,7 @@
           "SELECT\n",
           "  MEASURE(`lost_sales_exposure`) AS lost_sales_usd,\n",
           "  MEASURE(`markdown_exposure`) AS markdown_usd\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position"
+          "FROM otto_demo.northpeak_retail.mv_store_position"
         ]
       },
       {
@@ -39,7 +39,7 @@
           "  climate_zone,\n",
           "  MEASURE(`stockout_count`) AS stockout_count,\n",
           "  MEASURE(`overstock_count`) AS overstock_count\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.mv_store_position\n",
+          "FROM otto_demo.northpeak_retail.mv_store_position\n",
           "GROUP BY ALL\n",
           "ORDER BY climate_zone"
         ]
@@ -54,7 +54,7 @@
           "  COUNT(*) AS position_count,\n",
           "  SUM(lost_sales_exposure_usd) AS total_lost_sales_usd,\n",
           "  SUM(markdown_exposure_usd) AS total_markdown_usd\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position\n",
+          "FROM otto_demo.northpeak_retail.gold_store_sku_position\n",
           "WHERE position_status IN ('stockout', 'at_risk', 'overstock')\n",
           "GROUP BY product_name, position_status\n",
           "ORDER BY total_lost_sales_usd DESC, total_markdown_usd DESC"
@@ -74,7 +74,7 @@
           "  nearest_surplus_store_id,\n",
           "  nearest_surplus_on_hand,\n",
           "  nearest_surplus_distance_km\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_open_shortfalls\n",
+          "FROM otto_demo.northpeak_retail.gold_open_shortfalls\n",
           "WHERE store_id = 'STORE-0214'\n",
           "  AND product_id = 'SKU-APP-04412'"
         ]
@@ -90,7 +90,7 @@
           "  recommended_source_store_id,\n",
           "  predicted_recaptured_usd,\n",
           "  predicted_net_value_usd\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations\n",
+          "FROM otto_demo.northpeak_retail.gold_recovery_recommendations\n",
           "WHERE store_id = 'STORE-0214'\n",
           "  AND product_id = 'SKU-APP-04412'\n",
           "ORDER BY predicted_net_value_usd DESC"
@@ -105,7 +105,7 @@
           "  COUNT(*) AS shortfall_count,\n",
           "  SUM(predicted_recaptured_usd) AS total_recaptured_usd,\n",
           "  SUM(predicted_net_value_usd) AS total_net_value_usd\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_recovery_recommendations\n",
+          "FROM otto_demo.northpeak_retail.gold_recovery_recommendations\n",
           "GROUP BY recommended_move\n",
           "ORDER BY total_recaptured_usd DESC"
         ]
@@ -121,7 +121,7 @@
           "  on_hand_units,\n",
           "  weeks_of_supply,\n",
           "  markdown_exposure_usd\n",
-          "FROM perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position\n",
+          "FROM otto_demo.northpeak_retail.gold_store_sku_position\n",
           "WHERE position_status = 'overstock'\n",
           "  AND climate_zone = 'South'\n",
           "ORDER BY markdown_exposure_usd DESC\n",

@@ -350,6 +350,36 @@ function makeTools(ctx: AgentContext): Tool[] {
   return tools;
 }
 
+/**
+ * Recursively strip numeric bounds (`minimum` / `maximum` /
+ * `exclusiveMinimum` / `exclusiveMaximum`) from `integer`/`number` schema
+ * nodes in a tool-parameter JSON schema.
+ *
+ * WHY: the Agents SDK ships every tool with `strict: true`, and zod's
+ * `z.number().int()` serializes to `{"type":"integer","minimum":<safe-int>,
+ * "maximum":<safe-int>}`. The Databricks AI Gateway's Anthropic (Claude)
+ * backend rejects that under strict validation with
+ *   "tools.N.custom: For 'integer' type, properties maximum, minimum are not
+ *    supported"
+ * (gpt-oss tolerated it; Claude does not). The bounds carry no behavioural
+ * value for the model, so drop them for gateway compatibility.
+ */
+function stripNumericBounds(node: unknown): void {
+  if (Array.isArray(node)) {
+    for (const item of node) stripNumericBounds(item);
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+  if (obj.type === 'integer' || obj.type === 'number') {
+    delete obj.minimum;
+    delete obj.maximum;
+    delete obj.exclusiveMinimum;
+    delete obj.exclusiveMaximum;
+  }
+  for (const value of Object.values(obj)) stripNumericBounds(value);
+}
+
 export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
   // Authenticate the LLM call to the governed Unity AI Gateway endpoint
   // (northpeak-ai-gateway) as the app SERVICE PRINCIPAL, not the viewer's OBO
@@ -366,7 +396,12 @@ export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
   // the streaming gateway masks the 400 as a bare 502). See git history.
   const client = new OpenAI({
     apiKey: bearer,
-    baseURL: `${ctx.databricksHost}/serving-endpoints`,
+    // Unity AI Gateway model service: OpenAI-compatible MLflow Chat Completions
+    // at /ai-gateway/mlflow/v1, with `model` = the model service's fully-qualified
+    // UC name (AGENT_MODEL, e.g. otto_demo.northpeak_gateway.northpeak_ai_gateway).
+    // The app SP has EXECUTE on the model service; the service governs the call
+    // (routing to system.ai.gpt-oss-120b + guardrails/inference table).
+    baseURL: `${ctx.databricksHost}/ai-gateway/mlflow/v1`,
     maxRetries: 4,
     fetch: async (input, init) => {
       const headers = new Headers(init?.headers);
@@ -377,17 +412,26 @@ export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
           const parsed = JSON.parse(body) as {
             input?: Array<Record<string, unknown>>;
             messages?: Array<Record<string, unknown>>;
+            tools?: Array<Record<string, unknown>>;
             store?: unknown;
             reasoning_effort?: unknown;
+            reasoning?: unknown;
           };
           // The Agents SDK sends OpenAI's `store` param in chat-completions
           // mode; the Databricks external-model gateway rejects it
           // ("Parameter 'store' is not supported"). Strip it.
           if ('store' in parsed) delete parsed.store;
-          // gpt-5.4 rejects function tools in /v1/chat/completions unless
-          // reasoning_effort is 'none' (the alternative is the Responses API,
-          // which the external-model gateway endpoint doesn't serve). Force it.
-          if (Array.isArray(parsed.messages)) parsed.reasoning_effort = 'none';
+          // Anthropic (Claude) via the gateway rejects minimum/maximum on
+          // integer/number tool params under strict:true. Strip them. See
+          // stripNumericBounds.
+          if (Array.isArray(parsed.tools)) stripNumericBounds(parsed.tools);
+          // The gateway's Claude backend does not accept a `reasoning_effort`
+          // param on /mlflow/v1/chat/completions ("Extra inputs are not
+          // permitted") — nor a `reasoning` object from modelSettings.reasoning.
+          // Strip both. (An earlier gpt-5.4 workaround FORCED reasoning_effort
+          // to 'none'; Claude rejects the field outright, so drop it instead.)
+          delete parsed.reasoning_effort;
+          delete parsed.reasoning;
           if (Array.isArray(parsed.input)) {
             for (const item of parsed.input) {
               const id = item.id;

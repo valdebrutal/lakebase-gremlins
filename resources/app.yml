@@ -3,7 +3,9 @@
 #   sql-warehouse → DATABRICKS_WAREHOUSE_ID / WAREHOUSE_ID
 #   postgres      → PG* + LAKEBASE_ENDPOINT
 #   genie-space   → GENIE_SPACE_ID
-#   agent-gateway → the AI Gateway serving endpoint (SP gets CAN_QUERY)
+# The agent LLM goes through the Unity AI Gateway MODEL SERVICE (not a binding —
+# it's a UC securable; SP granted EXECUTE post-deploy), called by fully-qualified
+# name at /ai-gateway/mlflow/v1 (AGENT_MODEL).
 # Catalog/schema/AGENT_MODEL are literals in app.yaml; dashboard/pipeline IDs are
 # stamped post-deploy (finalize_sandbox.sh). dist/ is built locally before deploy.
 resources:
@@ -12,9 +14,7 @@ resources:
       name: northpeak-store-ops
       description: "NorthPeak Store Ops — stockout & markdown rescue."
       # Paths in resources/*.yml resolve relative to THIS file's dir (resources/),
-      # not the bundle root — verified in Task 5. Use ../app to reach the repo-root
-      # app dir. VERIFY after writing: `databricks bundle validate -t sandbox -o json`
-      # must show source_code_path resolving under `…/files/app`.
+      # not the bundle root — use ../app to reach the repo-root app dir.
       source_code_path: ../app
       resources:
         - name: sql-warehouse
@@ -24,14 +24,14 @@ resources:
         - name: postgres
           postgres:
             branch: projects/northpeak/branches/production
-            database: projects/northpeak/branches/production/databases/databricks_postgres
+            database: projects/northpeak/branches/production/databases/databricks-postgres
             permission: CAN_CONNECT_AND_CREATE
         - name: genie-space
           genie_space:
             name: northpeak-genie
             space_id: ${resources.genie_spaces.northpeak_genie.id}
             permission: CAN_RUN
-        - name: agent-gateway
-          serving_endpoint:
-            name: northpeak-ai-gateway
-            permission: CAN_QUERY
+      # NOTE: the AI Gateway model service (otto_demo.northpeak_gateway.
+      # northpeak_ai_gateway) is a UC securable, not a serving_endpoint — it can't
+      # be an app resource binding. The app SP is granted EXECUTE on it post-deploy
+      # (runbook), and calls it at /ai-gateway/mlflow/v1 (AGENT_MODEL).

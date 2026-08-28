@@ -15,6 +15,10 @@ resources:
               - "northpeak"
               - "--user"
               - "${workspace.current_user.userName}"
+              # __file__ is undefined in a spark_python_task; pass the synced
+              # migrations dir explicitly (files root = ${workspace.file_path}).
+              - "--migrations-dir"
+              - "${workspace.file_path}/lakebase/migrations"
           environment_key: sdk_default
       environments:
         - environment_key: sdk_default
@@ -22,4 +26,6 @@ resources:
             client: "4"
             dependencies:
               - "psycopg[binary]"
-              - databricks-sdk
+              # Pin >=0.81 so w.postgres exists (serverless base ships an older
+              # SDK; an unversioned dep doesn't force the upgrade).
+              - "databricks-sdk>=0.133.0"
