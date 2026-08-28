@@ -1,0 +1,67 @@
+{
+  "table": "perma_vm_catalog.northpeak_gateway.app_gw_payload",
+  "description": "AI Gateway inference table for `northpeak-ai-gateway`. The NorthPeak Store Ops app routes every agent LLM call through this endpoint (app agentModel=northpeak-ai-gateway; /serving-endpoints/chat/completions -> external-model -> databricks-gpt-5-4), logged here for platform-team auditing.",
+  "endpoint": "northpeak-ai-gateway",
+  "evidence": {
+    "routed_calls": {
+      "note": "App agent calls flowing through the gateway (request+response logged, requester attributed).",
+      "rows": [
+        {
+          "databricks_request_id": "764ce550-bf7e-46d6-abbf-fe86433d4266",
+          "execution_duration_ms": "3103",
+          "request": "{\"messages\":[{\"content\":\"You are the store-operations assistant for the SVP of Retail Operations at\\nNorthPeak Retail (Dana Ruiz). Your user is a non-technical executive staring\\nat stores on a map all day. Be decisive, concise, and always lead with the\\nnumbe",
+          "request_time": "2026-08-28T06:48:05.419Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"id\":\"chatcmpl-EHkfemxqJOJgPKRAZ8KrkPkh36zOH\",\"object\":\"chat.completion.chunk\",\"created\":1787899686,\"model\":\"gpt-5.4-2026-03-05\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"I can\u2019t read the lakehouse right now: **ask_data failed with `403 I"
+        },
+        {
+          "databricks_request_id": "c4746614-e3f4-4f3e-9a28-5db4219a101e",
+          "execution_duration_ms": "1788",
+          "request": "{\"messages\":[{\"content\":\"You are the store-operations assistant for the SVP of Retail Operations at\\nNorthPeak Retail (Dana Ruiz). Your user is a non-technical executive staring\\nat stores on a map all day. Be decisive, concise, and always lead with the\\nnumbe",
+          "request_time": "2026-08-28T06:48:03.556Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"id\":\"chatcmpl-EHkfcbMV6sIdzmhZvgDc1uHpYuSJZ\",\"object\":\"chat.completion.chunk\",\"created\":1787899684,\"model\":\"gpt-5.4-2026-03-05\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_aYCYzntrDPowZQfCfKOh4JiL\",\"type\":\"funct"
+        },
+        {
+          "databricks_request_id": "ab03f9e8-1d88-4e7f-a66b-006bb9ef54b3",
+          "execution_duration_ms": "4591",
+          "request": "{\"messages\":[{\"content\":\"You are the store-operations assistant for the SVP of Retail Operations at\\nNorthPeak Retail (Dana Ruiz). Your user is a non-technical executive staring\\nat stores on a map all day. Be decisive, concise, and always lead with the\\nnumbe",
+          "request_time": "2026-08-28T06:37:30.180Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"id\":\"chatcmpl-EHkVPiDev9qE1cHlKUkPX2gzrbjQU\",\"object\":\"chat.completion.chunk\",\"created\":1787899051,\"model\":\"gpt-5.4-2026-03-05\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"**0 units on hand; transfer is the move.**\\n\\nStore 214 is out beca"
+        }
+      ]
+    },
+    "budget_threshold_block": {
+      "note": "Enforced rejection once the configured threshold is crossed: AI Gateway rate limit -> REQUEST_LIMIT_EXCEEDED. (Dollar hard-caps are the Enhanced UAIGW spend-cap console feature.)",
+      "rows": [
+        {
+          "databricks_request_id": "23ad3e42-fc4f-4174-8d41-27e8a3ca6da9",
+          "request": "{\"max_tokens\":40,\"messages\":[{\"content\":\"say hi\",\"role\":\"user\"}]}",
+          "request_time": "2026-08-28T05:40:34.048Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"error_code\":\"REQUEST_LIMIT_EXCEEDED\",\"message\":\"User defined rate limit(s) exceeded for endpoint: northpeak-ai-gateway. Queries-per-minute (QPM) rate limit exceeded for endpoint\"}"
+        },
+        {
+          "databricks_request_id": "0683966e-0cf4-43fd-8cca-ba97ee30e9bc",
+          "request": "{\"max_tokens\":40,\"messages\":[{\"content\":\"say hi\",\"role\":\"user\"}]}",
+          "request_time": "2026-08-28T05:40:32.744Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"error_code\":\"REQUEST_LIMIT_EXCEEDED\",\"message\":\"User defined rate limit(s) exceeded for endpoint: northpeak-ai-gateway. Queries-per-minute (QPM) rate limit exceeded for endpoint\"}"
+        }
+      ]
+    },
+    "guardrail_block": {
+      "note": "PII guardrail (BLOCK) rejects a runaway all-data read carrying bulk customer PII -> input_guardrail_triggered. Custom UC SQL guardrail northpeak_gateway.guard_block_all_data additionally flags all-data/SELECT* prompts (gateway_service.txt).",
+      "rows": [
+        {
+          "databricks_request_id": "17424b41-546a-4bf2-9217-9cbd1b00eccf",
+          "request": "{\"max_tokens\":40,\"messages\":[{\"content\":\"Store this customer row: John Q Public, SSN 123-45-6789, email john.public@example.com, card 4111 1111 1111 1111. Confirm saved.\",\"role\":\"user\"}]}",
+          "request_time": "2026-08-28T05:38:23.486Z",
+          "requester": "carlos.montes@databricks.com",
+          "response": "{\"error_code\":\"BAD_REQUEST\",\"message\":\"{\\\"usage\\\":{\\\"prompt_tokens\\\":0,\\\"total_tokens\\\":0},\\\"input_guardrail\\\":[{\\\"flagged\\\":false,\\\"categories\\\":null,\\\"category_scores\\\":null,\\\"pii_detection\\\":true,\\\"anonymized_input\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Store this customer row: John Q Public, SSN 123-45-6789, email <EMAIL_ADDRESS>, card <CREDIT_CARD>. Confir"
+        }
+      ]
+    }
+  }
+}

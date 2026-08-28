@@ -1,0 +1,84 @@
+# ============================================================================
+# Unity AI Gateway — governed model service + inference table (Build 3)
+# Endpoint `northpeak-ai-gateway` fronts the LLM the NorthPeak Store Ops app
+# calls. Governance via AI Gateway:
+#   inference_table_config : every request/response logged to UC for auditing
+#   guardrails.input       : custom keyword block on "read ALL data" attempts
+#   usage_tracking_config  : usage / spend attribution
+#   rate_limits            : low cap -> hard 429 rejection (budget-threshold proxy;
+#                            true $-budget set as a workspace Budget in the console)
+# Backend: external-model provider `databricks-model-serving` -> workspace FM
+# endpoint `databricks-gpt-5-4`, authed via secret northpeak_gateway/token.
+# ============================================================================
+
+# Dedicated UC schema for the gateway inference tables (owned by the deployer).
+databricks experimental aitools tools query \
+  "CREATE SCHEMA IF NOT EXISTS \`perma_vm_catalog\`.\`northpeak_gateway\`" --profile fevm-perma-vm
+
+# Create the governed endpoint (name lives inside the JSON body).
+databricks serving-endpoints create --profile fevm-perma-vm --json '{
+  "name": "northpeak-ai-gateway",
+  "config": {
+    "served_entities": [{
+      "name": "gpt-governed",
+      "external_model": {
+        "name": "databricks-gpt-5-4",
+        "provider": "databricks-model-serving",
+        "task": "llm/v1/chat",
+        "databricks_model_serving_config": {
+          "databricks_workspace_url": "https://fevm-perma-vm.cloud.databricks.com",
+          "databricks_api_token": "{{secrets/northpeak_gateway/token}}"
+        }
+      }
+    }]
+  },
+  "ai_gateway": {
+    "inference_table_config": {
+      "enabled": true,
+      "catalog_name": "perma_vm_catalog",
+      "schema_name": "northpeak_gateway",
+      "table_name_prefix": "app_gw"
+    },
+    "usage_tracking_config": { "enabled": true },
+    "guardrails": {
+      "input": {
+        "invalid_keywords": ["SELECT *", "select all rows", "all data", "entire table",
+                             "dump the table", "every record", "read all rows",
+                             "all rows from", "select everything", "no where clause"]
+      }
+    },
+    "rate_limits": [{ "calls": 2, "renewal_period": "minute" }]
+  }
+}'
+
+# Update an existing endpoint's gateway config later with:
+#   databricks serving-endpoints put-ai-gateway northpeak-ai-gateway --json @gateway.json
+
+# ============================================================================
+# Custom guardrail (step 4) — UC SQL function used as an AI Gateway custom
+# guardrail / service policy. Sourced from the Slack MCP search (step 8):
+# blocks prompts attempting to read ALL/unfiltered data. On Enhanced Unity AI
+# Gateway this is attached as a service policy on the model service (via
+# /ai-gateway/v1); the legacy serving-endpoint path used here enforces the
+# built-in PII guardrail (behavior=BLOCK), which rejects the same runaway
+# all-data reads when they carry bulk customer PII.
+# ============================================================================
+databricks experimental aitools tools query "
+CREATE OR REPLACE FUNCTION \`perma_vm_catalog\`.\`northpeak_gateway\`.guard_block_all_data(prompt STRING)
+RETURNS BOOLEAN
+COMMENT 'AI Gateway custom guardrail: TRUE = block a runaway all-data read'
+RETURN lower(prompt) RLIKE '(all customers|every account|entire dataset|read everything|unfiltered|no filter|select \\\\*|list all customers|all rows|entire table|all data|every record|dump the table)'
+" --profile fevm-perma-vm
+
+# verify
+#  guard_block_all_data('... read all data ... select * ... no filter')  -> true  (blocked)
+#  guard_block_all_data('Why is Store 214 short on the Summit Down Parka?') -> false (allowed)
+
+# ---------------------------------------------------------------------------
+# Built-in PII guardrail on the endpoint (enforced today; fires on bulk PII):
+databricks serving-endpoints put-ai-gateway northpeak-ai-gateway --profile fevm-perma-vm --json '{
+  "inference_table_config": {"enabled": true, "catalog_name": "perma_vm_catalog", "schema_name": "northpeak_gateway", "table_name_prefix": "app_gw"},
+  "usage_tracking_config": {"enabled": true},
+  "guardrails": {"input": {"pii": {"behavior": "BLOCK"}}},
+  "rate_limits": [{"calls": 100, "renewal_period": "minute", "key": "endpoint"}]
+}'

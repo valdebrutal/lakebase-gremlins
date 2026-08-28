@@ -1,0 +1,41 @@
+HERO QUESTION
+=============
+"Store 214 is short on the Summit Down Parka — what's the best recovery move?"
+(Dana Ruiz, SVP Retail Operations — answered as a decision: surface → explain → prescribe → approve → act → closed loop.)
+
+DECISION CHAIN — linked record IDs across the submission2 exports
+=================================================================
+Store            : STORE-0214  (NorthPeak Denver #0214, North climate zone)
+Product (SKU)    : SKU-APP-04412  (Summit Down Parka)
+Source surplus   : STORE-0377  (833 units on hand, 99.9 km away)
+
+1. SURFACE — view_result.json
+   The live scored view (worst open shortfalls) ranks STORE-0214 / Summit Down Parka
+   among the top lost-sales exposures ($56,558.57; 0 on hand; velocity 7.57/day).
+   Trigger that produced it: state_table.json event_type='view_scored' (source 'system' on
+   boot + 'schedule' every 15 min) — a system update, not a person opening the view.
+
+2. EXPLAIN — assist_log.jsonl (kind='explanation', tool=ask_data / Genie)
+   Genie investigates the governed lakehouse: 0 on hand + high velocity at STORE-0214 while
+   STORE-0377 holds 833 surplus — a misallocation the cold snap exposed.
+
+3. PRESCRIBE — app.recovery_recommendations (mirrored ML output) + assist_log.jsonl
+   Ranked moves (net): transfer +$49,903.85 > expedite +$44,101.04 > substitute +$5,052.71.
+   Substitute candidate retrieved via Lakebase Search (assist_log kind='retrieval'):
+   Ridgeline Insulated Jacket (SKU-APP-04418), 973 in stock.
+   What-if (assist_log kind='what_if'): at 150 units transfer nets $32,831 — expedite would win.
+   Auto-drafted memo: drafted_sample.md.
+
+4. APPROVE + ACT — writeback_table.json (app.ops_actions — WRITABLE Postgres)
+   action_id       : 6cef767e-49c5-4c34-ac50-4e0088fc8c95
+     move_type=transfer, units=228, source_store_id=STORE-0377,
+     status: proposed (by agent) -> approved (by carlos.montes@databricks.com),
+     created_at = proposed time, committed_at (decided_at) = approval time (see audit_trail).
+   markdown_hold_id: 60d2c283-7269-46c0-8dcf-d8c2743b96c8  (hold on STORE-0377 surplus)
+
+5. OBSERVE + CLOSE THE LOOP — state_table.json
+   event_type='decision_committed' links action_id 6cef767e... to the store x SKU.
+   Next read of the position (app.store_sku_position LEFT JOIN latest ops_actions) now returns
+   live_move_type='transfer', action_status='approved' — the committed decision is reflected
+   on the next read. The read-only synced UC table was never written; all state lives in the
+   writable Postgres tables (ops_actions, workflow_events).

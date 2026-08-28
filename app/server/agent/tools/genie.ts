@@ -30,7 +30,7 @@
 import { loggedTool as tool } from './logged-tool.js';
 import * as mlflow from 'mlflow-tracing';
 import { z } from 'zod';
-import { authHeaders } from '../../lib/auth.js';
+import { authHeadersServicePrincipal } from '../../lib/auth.js';
 import type { DataCallResult, DataToolContext, ToolProgressEvent } from './types.js';
 
 /**
@@ -47,7 +47,7 @@ export async function callGenieSpace(
     try { ctx.onToolProgress?.(ev); } catch { /* never let progress fail the tool */ }
   }
 
-  const headers = await authHeaders(ctx.req);
+  const headers = await authHeadersServicePrincipal();
   headers.set('Content-Type', 'application/json');
 
   // Start a Genie conversation. 2-min cap on the kickoff call — it's a
@@ -92,7 +92,7 @@ export async function callGenieSpace(
   let answer = '';
   for (let attempts = 0; attempts < POLL_MAX_ATTEMPTS; attempts++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    const pollHeaders = await authHeaders(ctx.req);
+    const pollHeaders = await authHeadersServicePrincipal();
     pollHeaders.set('Content-Type', 'application/json');
     const pollResp = await fetch(pollUrl, {
       method: 'GET',

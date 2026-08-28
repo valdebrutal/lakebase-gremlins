@@ -1,0 +1,34 @@
+{
+  "name": "northpeak-ai-gateway",
+  "config": {
+    "served_entities": [
+      {
+        "name": "gpt-governed",
+        "external_model": {
+          "name": "databricks-gpt-5-4",
+          "provider": "databricks-model-serving",
+          "task": "llm/v1/chat",
+          "databricks_model_serving_config": {
+            "databricks_workspace_url": "https://fevm-perma-vm.cloud.databricks.com",
+            "databricks_api_token": "{{secrets/northpeak_gateway/token}}"
+          }
+        }
+      }
+    ]
+  },
+  "ai_gateway": {
+    "inference_table_config": {
+      "enabled": true,
+      "catalog_name": "perma_vm_catalog",
+      "schema_name": "northpeak_gateway",
+      "table_name_prefix": "app_gw"
+    },
+    "usage_tracking_config": { "enabled": true },
+    "guardrails": {
+      "input": { "pii": { "behavior": "BLOCK" } }
+    },
+    "rate_limits": [
+      { "calls": 100, "renewal_period": "minute", "key": "endpoint" }
+    ]
+  }
+}

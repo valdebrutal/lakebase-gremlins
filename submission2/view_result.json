@@ -1,0 +1,169 @@
+{
+  "view": "worst_open_shortfalls",
+  "query_file": "view_query.sql",
+  "source": "perma_vm_catalog.dev_otto_jaaskelainen_northpeak_retail.gold_store_sku_position (Build 1 synced Unity Catalog table, read-only)",
+  "warehouse_id": "eeaad8547b3c3ab3",
+  "row_count": 20,
+  "rows": [
+    {
+      "avg_daily_velocity": 10.29,
+      "city": "Detroit",
+      "lost_sales_exposure_usd": 76834.28,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Detroit #0034"
+    },
+    {
+      "avg_daily_velocity": 9.43,
+      "city": "Denver",
+      "lost_sales_exposure_usd": 70431.43,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Denver #0006"
+    },
+    {
+      "avg_daily_velocity": 9.14,
+      "city": "Chicago",
+      "lost_sales_exposure_usd": 68297.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Chicago #0083"
+    },
+    {
+      "avg_daily_velocity": 9.0,
+      "city": "Denver",
+      "lost_sales_exposure_usd": 67230.0,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Denver #0043"
+    },
+    {
+      "avg_daily_velocity": 8.71,
+      "city": "Chicago",
+      "lost_sales_exposure_usd": 65095.72,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Chicago #0053"
+    },
+    {
+      "avg_daily_velocity": 8.71,
+      "city": "Milwaukee",
+      "lost_sales_exposure_usd": 65095.72,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Milwaukee #0011"
+    },
+    {
+      "avg_daily_velocity": 8.71,
+      "city": "Denver",
+      "lost_sales_exposure_usd": 65095.72,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Denver #0065"
+    },
+    {
+      "avg_daily_velocity": 8.71,
+      "city": "Portland",
+      "lost_sales_exposure_usd": 65095.72,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Portland #0023"
+    },
+    {
+      "avg_daily_velocity": 8.57,
+      "city": "Minneapolis",
+      "lost_sales_exposure_usd": 64028.57,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Minneapolis #0003"
+    },
+    {
+      "avg_daily_velocity": 8.57,
+      "city": "Portland",
+      "lost_sales_exposure_usd": 64028.57,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Portland #0045"
+    },
+    {
+      "avg_daily_velocity": 8.43,
+      "city": "Buffalo",
+      "lost_sales_exposure_usd": 62961.43,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Buffalo #0019"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Chicago",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Chicago #0052"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Boston",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Boston #0038"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Portland",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Portland #0075"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Minneapolis",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Minneapolis #0057"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Chicago",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Chicago #0063"
+    },
+    {
+      "avg_daily_velocity": 8.14,
+      "city": "Denver",
+      "lost_sales_exposure_usd": 60827.14,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Denver #0015"
+    },
+    {
+      "avg_daily_velocity": 8.0,
+      "city": "Milwaukee",
+      "lost_sales_exposure_usd": 59760.0,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Milwaukee #0028"
+    },
+    {
+      "avg_daily_velocity": 8.0,
+      "city": "Pittsburgh",
+      "lost_sales_exposure_usd": 59760.0,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Pittsburgh #0014"
+    },
+    {
+      "avg_daily_velocity": 7.86,
+      "city": "Pittsburgh",
+      "lost_sales_exposure_usd": 58692.86,
+      "on_hand": 0,
+      "product_name": "Summit Down Parka",
+      "store_name": "NorthPeak Pittsburgh #0021"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+================================================================================
+Build 3 · Unity AI Gateway — Coding-agent + MCP onboarding thread
+================================================================================
+Steps 6-8: onboard the ucode coding agent through the Unity AI Gateway, onboard
+the Slack MCP through the gateway and add it to the coding agent, and use the
+Slack MCP to find the guardrail solution. Every LLM call below routes through
+the gateway; the Slack MCP routes through /ai-gateway/mcp-services/system.ai.slack.
+
+--------------------------------------------------------------------------------
+STEP 6 — Onboard the coding agent with Unity AI Gateway (ucode)
+--------------------------------------------------------------------------------
+$ ucode configure --profiles fevm-perma-vm --agents codex
+  ✔ Databricks authentication complete
+  ✔ Unity AI Gateway detected
+  Codex: configured
+  --- ucode status (coding agent routed through the gateway) ---
+    Coding Agent: Codex
+    Configured: yes
+    Base URL: https://fevm-perma-vm.cloud.databricks.com/ai-gateway/codex/v1
+    MCP list command: codex mcp list
+    MCP servers: system-ai-slack
+    Config file: /Users/carlos.montes/.codex/ucode.config.toml
+
+--------------------------------------------------------------------------------
+STEP 7 — Onboard the Slack MCP through Unity AI Gateway + add to the coding agent
+--------------------------------------------------------------------------------
+$ ucode configure mcp --services system.ai.slack
+  ✔ Saved   (Configuring for: Codex)
+  --- ucode status: MCP server (gateway-routed) ---
+    MCP servers: system-ai-slack
+  --- codex mcp list (slack registered + enabled for the coding agent) ---
+  Name             Command                                         Args                                                                                                     Env                                                                                             Cwd  Status    Auth       
+  slack            dbexec                                          repo run mcp start-single slack                                                                          I_DANGEROUSLY_OPT_IN_TO_UNSUPPORTED_ALPHA_TOOLS=*****, MCP_PRIVACY_SUMMARIZATION_ENABLED=*****  -    enabled   Unsupported
+  Name             Url                                                                                 Bearer Token Env Var  Status   Auth        
+  system-ai-slack  https://fevm-perma-vm.cloud.databricks.com/ai-gateway/mcp-services/system.ai.slack  OAUTH_TOKEN           enabled  Bearer token
+
+--------------------------------------------------------------------------------
+STEP 6/8 — The coding agent runs THROUGH the gateway (real calls)
+--------------------------------------------------------------------------------
+$ codex exec "In one short sentence, what is a Unity AI Gateway guardrail?"
+  model: gpt-5.6-sol   provider: Databricks
+  base_url: https://fevm-perma-vm.cloud.databricks.com/ai-gateway/codex/v1
+  -> "A Unity AI Gateway guardrail is a policy that filters model inputs and
+      outputs to block unsafe or noncompliant content."  (15,023 tokens, via gateway)
+
+$ codex exec "Use the slack MCP to search Slack for instructions on a custom
+   Unity AI Gateway guardrail that blocks reading ALL data..."
+  model: gpt-5.6-sol   provider: Databricks (26,525 tokens, via gateway)
+  [note] codex exec (non-interactive) did not load the OAuth-bearer Slack MCP in
+  this run; the Slack MCP search below was executed via the platform Slack MCP
+  (same system.ai.slack service) and returned the guardrail solution.
+
+--------------------------------------------------------------------------------
+STEP 8 — Use the Slack MCP to find the guardrail solution instructions
+--------------------------------------------------------------------------------
+Slack MCP: search.messages  query="guardrails solution instructions Unity Gateway"
+Top actionable result (from a peer AI-challenge team, #fins-ai-challenge-team-cool):
+
+  "Create a Unity Catalog SQL function <catalog>.<schema>.guard_block_all_data(prompt STRING)
+   for use as an AI Gateway custom guardrail. Return TRUE (block) when the prompt
+   attempts to read all/unfiltered customer data - patterns like 'all customers',
+   'every account', 'entire dataset', 'read everything', 'unfiltered', 'no filter',
+   'select *', 'list all customers'. Use a case-insensitive RLIKE. Then run two test
+   SELECTs (one blocks, one passes)."
+
+Supporting guidance (#ai-gateway):
+  "AI Guardrails (service policies) only run on Unity AI Gateway model/MCP/model-provider
+   services, not legacy /serving-endpoints. Create a model service and point the app to
+   /ai-gateway/v1; configure OOB (PII) + custom (SQL / LLM-as-judge) guardrails; budgets =
+   hard spend caps by user/team/use-case in the account console."
+
+=> Implemented as perma_vm_catalog.northpeak_gateway.guard_block_all_data (see
+   gateway_service.txt); verified: 'read all data ... select *' -> TRUE (block),
+   'why is Store 214 short?' -> FALSE (allow).
+================================================================================

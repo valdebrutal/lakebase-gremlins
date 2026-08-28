@@ -1,0 +1,126 @@
+{
+  "table": "app.workflow_events",
+  "description": "Lakebase workflow-state + observability log. 'view_scored' rows are the scheduled/system TRIGGER (the scorer re-ranks the live view, not a person opening it); 'decision_committed' rows are recorded decisions. Every row timestamped.",
+  "row_count": 3,
+  "rows": [
+    {
+      "id": "a6825032-9306-4e81-9c6c-ea65a650232f",
+      "event_type": "view_scored",
+      "source": "schedule",
+      "store_id": "STORE-0034",
+      "product_id": "SKU-APP-04412",
+      "action_id": null,
+      "payload": {
+        "scored_at": "2026-08-27T13:18:12.780Z",
+        "top_shortfalls": [
+          {
+            "city": "Detroit",
+            "store_id": "STORE-0034",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Detroit #0034",
+            "lost_sales_exposure_usd": 76834.28
+          },
+          {
+            "city": "Denver",
+            "store_id": "STORE-0006",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Denver #0006",
+            "lost_sales_exposure_usd": 70431.43
+          },
+          {
+            "city": "Chicago",
+            "store_id": "STORE-0083",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Chicago #0083",
+            "lost_sales_exposure_usd": 68297.14
+          },
+          {
+            "city": "Denver",
+            "store_id": "STORE-0043",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Denver #0043",
+            "lost_sales_exposure_usd": 67230
+          },
+          {
+            "city": "Portland",
+            "store_id": "STORE-0023",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Portland #0023",
+            "lost_sales_exposure_usd": 65095.72
+          }
+        ],
+        "open_shortfall_count": 150
+      },
+      "created_at": "2026-08-27T13:18:12.782233+00:00"
+    },
+    {
+      "id": "35478cca-f281-460a-b528-bef85b9ef062",
+      "event_type": "decision_committed",
+      "source": "user",
+      "store_id": "STORE-0214",
+      "product_id": "SKU-APP-04412",
+      "action_id": "6cef767e-49c5-4c34-ac50-4e0088fc8c95",
+      "payload": {
+        "units": 228,
+        "move_type": "transfer",
+        "approved_by": "carlos.montes@databricks.com",
+        "hero_question": "Store 214 is short on the Summit Down Parka - best recovery move?",
+        "source_store_id": "STORE-0377",
+        "markdown_hold_id": "60d2c283-7269-46c0-8dcf-d8c2743b96c8",
+        "predicted_net_value_usd": 49903.85,
+        "predicted_recaptured_usd": 50073.76
+      },
+      "created_at": "2026-08-27T13:16:19.448991+00:00"
+    },
+    {
+      "id": "eb5d9f43-b691-4eb1-babf-453e0e183613",
+      "event_type": "view_scored",
+      "source": "system",
+      "store_id": "STORE-0034",
+      "product_id": "SKU-APP-04412",
+      "action_id": null,
+      "payload": {
+        "scored_at": "2026-08-27T13:03:12.712Z",
+        "top_shortfalls": [
+          {
+            "city": "Detroit",
+            "store_id": "STORE-0034",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Detroit #0034",
+            "lost_sales_exposure_usd": 76834.28
+          },
+          {
+            "city": "Denver",
+            "store_id": "STORE-0006",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Denver #0006",
+            "lost_sales_exposure_usd": 70431.43
+          },
+          {
+            "city": "Chicago",
+            "store_id": "STORE-0083",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Chicago #0083",
+            "lost_sales_exposure_usd": 68297.14
+          },
+          {
+            "city": "Denver",
+            "store_id": "STORE-0043",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Denver #0043",
+            "lost_sales_exposure_usd": 67230
+          },
+          {
+            "city": "Portland",
+            "store_id": "STORE-0023",
+            "product_id": "SKU-APP-04412",
+            "store_name": "NorthPeak Portland #0023",
+            "lost_sales_exposure_usd": 65095.72
+          }
+        ],
+        "open_shortfall_count": 150
+      },
+      "created_at": "2026-08-27T13:03:12.714524+00:00"
+    }
+  ]
+}

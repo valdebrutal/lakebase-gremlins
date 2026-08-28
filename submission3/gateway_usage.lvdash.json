@@ -1,0 +1,166 @@
+{
+  "datasets": [
+    {
+      "name": "usage_by_requester",
+      "displayName": "Usage by requester",
+      "queryLines": [
+        "SELECT requester, COUNT(*) AS calls,\n",
+        " SUM(CASE WHEN response LIKE '%REQUEST_LIMIT_EXCEEDED%' THEN 1 ELSE 0 END) AS threshold_blocks,\n",
+        " SUM(CASE WHEN response LIKE '%guardrail%' OR response LIKE '%input_guardrail%' THEN 1 ELSE 0 END) AS guardrail_blocks\n",
+        "FROM perma_vm_catalog.northpeak_gateway.app_gw_payload GROUP BY requester ORDER BY calls DESC"
+      ]
+    },
+    {
+      "name": "outcomes_over_time",
+      "displayName": "Gateway outcomes over time",
+      "queryLines": [
+        "SELECT date_trunc('MINUTE', request_time) AS minute,\n",
+        " CASE WHEN response LIKE '%REQUEST_LIMIT_EXCEEDED%' THEN 'threshold_block'\n",
+        "      WHEN response LIKE '%guardrail%' OR response LIKE '%input_guardrail%' THEN 'guardrail_block'\n",
+        "      WHEN response LIKE '%\"choices\"%' THEN 'served' ELSE 'other' END AS outcome,\n",
+        " COUNT(*) AS n\n",
+        "FROM perma_vm_catalog.northpeak_gateway.app_gw_payload GROUP BY 1,2 ORDER BY 1"
+      ]
+    },
+    {
+      "name": "totals",
+      "displayName": "Totals",
+      "queryLines": [
+        "SELECT COUNT(*) AS total_calls,\n",
+        " COUNT(DISTINCT requester) AS principals,\n",
+        " SUM(CASE WHEN response LIKE '%REQUEST_LIMIT_EXCEEDED%' THEN 1 ELSE 0 END) AS threshold_blocks,\n",
+        " SUM(CASE WHEN response LIKE '%guardrail%' OR response LIKE '%input_guardrail%' THEN 1 ELSE 0 END) AS guardrail_blocks\n",
+        "FROM perma_vm_catalog.northpeak_gateway.app_gw_payload"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "usage",
+      "displayName": "Unity AI Gateway usage",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_totals",
+            "queries": [
+              {
+                "name": "q_w_totals",
+                "query": {
+                  "datasetName": "totals",
+                  "fields": [
+                    {
+                      "name": "total_calls",
+                      "expression": "`total_calls`"
+                    },
+                    {
+                      "name": "threshold_blocks",
+                      "expression": "`threshold_blocks`"
+                    },
+                    {
+                      "name": "guardrail_blocks",
+                      "expression": "`guardrail_blocks`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {}
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_req",
+            "queries": [
+              {
+                "name": "q_w_req",
+                "query": {
+                  "datasetName": "usage_by_requester",
+                  "fields": [
+                    {
+                      "name": "requester",
+                      "expression": "`requester`"
+                    },
+                    {
+                      "name": "calls",
+                      "expression": "`calls`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {}
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_time",
+            "queries": [
+              {
+                "name": "q_w_time",
+                "query": {
+                  "datasetName": "outcomes_over_time",
+                  "fields": [
+                    {
+                      "name": "minute",
+                      "expression": "`minute`"
+                    },
+                    {
+                      "name": "n",
+                      "expression": "`n`"
+                    },
+                    {
+                      "name": "outcome",
+                      "expression": "`outcome`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {}
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F5F5F5"
+      }
+    }
+  }
+}

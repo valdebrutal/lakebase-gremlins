@@ -23,7 +23,7 @@
   // Agent LLM. Needs the Responses API (openai/v1/responses). databricks-gpt-5-4
   // is the baseline; a newer GPT endpoint with /responses enabled works too.
   // Non-Responses models (Claude etc.) 400 BAD_REQUEST.
-  "agentModel": "databricks-gpt-5-4",
+  "agentModel": "${AGENT_MODEL:northpeak-ai-gateway}",
 
   // MLflow trace path. Empty → chat shows "Trace pending…". Auto-created at boot.
   "mlflowExperimentId": "",

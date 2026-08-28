@@ -1,0 +1,60 @@
+{
+  "table": "app.ops_actions",
+  "description": "Writable Lakebase Postgres action table. The read-only synced UC mirror is never written; all decisions/actions land here.",
+  "row_count": 2,
+  "rows": [
+    {
+      "id": "6cef767e-49c5-4c34-ac50-4e0088fc8c95",
+      "store_id": "STORE-0214",
+      "product_id": "SKU-APP-04412",
+      "move_type": "transfer",
+      "source_store_id": "STORE-0377",
+      "units": 228,
+      "drafted_request": "Transfer 228 units of Summit Down Parka (SKU-APP-04412) from STORE-0377 (surplus 833, 99.9km) to Store 214 (0 on-hand). Transfer nets +$49,903.85 vs expedite +$44,101.04 / substitute +$5,052.71. Place a markdown-hold on STORE-0377 so its surplus is not discounted in transit.",
+      "predicted_recaptured_usd": 50073.76,
+      "status": "approved",
+      "approved_by": "carlos.montes@databricks.com",
+      "audit_trail": [
+        {
+          "at": "2026-08-27 13:16:19.448991+00",
+          "by": "agent",
+          "tool": "rank_recovery_moves",
+          "notes": "ML-ranked transfer drafted for approval",
+          "action": "proposed"
+        },
+        {
+          "at": "2026-08-27 13:16:19.448991+00",
+          "by": "carlos.montes@databricks.com",
+          "tool": "execute_recovery_action",
+          "notes": "Approved in review; committing transfer + markdown-hold",
+          "action": "approved"
+        }
+      ],
+      "created_at": "2026-08-27T13:16:19.448991+00:00",
+      "committed_at": "2026-08-27T13:16:19.448991+00:00"
+    },
+    {
+      "id": "60d2c283-7269-46c0-8dcf-d8c2743b96c8",
+      "store_id": "STORE-0377",
+      "product_id": "SKU-APP-04412",
+      "move_type": "markdown_hold",
+      "source_store_id": "STORE-0214",
+      "units": 0,
+      "drafted_request": "Markdown hold on surplus feeding STORE-0214 transfer",
+      "predicted_recaptured_usd": 0,
+      "status": "approved",
+      "approved_by": "carlos.montes@databricks.com",
+      "audit_trail": [
+        {
+          "at": "2026-08-27 13:16:19.448991+00",
+          "by": "carlos.montes@databricks.com",
+          "tool": "execute_recovery_action",
+          "notes": "Hold surplus from discount while transfer in transit",
+          "action": "markdown_hold"
+        }
+      ],
+      "created_at": "2026-08-27T13:16:19.448991+00:00",
+      "committed_at": "2026-08-27T13:16:19.448991+00:00"
+    }
+  ]
+}

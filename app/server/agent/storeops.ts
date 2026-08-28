@@ -37,6 +37,7 @@ import {
   Agent,
   run,
   setDefaultOpenAIClient,
+  setOpenAIAPI,
   setTracingDisabled,
 } from '@openai/agents';
 import type { Tool } from '@openai/agents';
@@ -369,7 +370,17 @@ export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
           const parsed = JSON.parse(body) as {
             input?: Array<Record<string, unknown>>;
             messages?: Array<Record<string, unknown>>;
+            store?: unknown;
+            reasoning_effort?: unknown;
           };
+          // The Agents SDK sends OpenAI's `store` param in chat-completions
+          // mode; the Databricks external-model gateway rejects it
+          // ("Parameter 'store' is not supported"). Strip it.
+          if ('store' in parsed) delete parsed.store;
+          // gpt-5.4 rejects function tools in /v1/chat/completions unless
+          // reasoning_effort is 'none' (the alternative is the Responses API,
+          // which the external-model gateway endpoint doesn't serve). Force it.
+          if (Array.isArray(parsed.messages)) parsed.reasoning_effort = 'none';
           if (Array.isArray(parsed.input)) {
             for (const item of parsed.input) {
               const id = item.id;
@@ -450,9 +461,12 @@ export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
     },
   });
   setDefaultOpenAIClient(client);
-  // Responses API (the SDK's default — we leave setOpenAIAPI alone).
-  // Keep `agentModel` on `databricks-gpt-5-4` or a newer Responses-capable
-  // GPT (needs `openai/v1/responses`). Claude/non-Responses models 400.
+  // Chat Completions API — we route LLM calls through the Unity AI Gateway
+  // endpoint `northpeak-ai-gateway` (external-model, task llm/v1/chat) so every
+  // call is governed (inference table + PII guardrail + usage tracking). That
+  // endpoint serves /chat/completions, NOT the Responses API, so switch the SDK
+  // off its Responses default. `agentModel` is the gateway endpoint name.
+  setOpenAIAPI('chat_completions');
   setTracingDisabled(true); // disable OpenAI's tracing backend; we use MLflow
 }
 

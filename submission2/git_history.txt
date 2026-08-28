@@ -1,0 +1,4 @@
+* 5d1ce7b (HEAD -> master, fix/app-build-scaffolding-and-northpeak-sync) feat(app): Build 3 Act + observability — execute_recovery_action, workflow_events, scheduled trigger
+* 580bd9b feat(app): Build 2 Assist — wire find_shortfall, rank_recovery_moves, search_products
+* 39b2186 (origin/fix/app-build-scaffolding-and-northpeak-sync) fix(app): restore build scaffolding and fix NorthPeak Delta sync
+* 095d21e (origin/master) init

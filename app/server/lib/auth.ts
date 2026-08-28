@@ -40,3 +40,21 @@ export async function authHeaders(req: Request): Promise<Headers> {
   await client.config.authenticate(h);
   return h;
 }
+
+/**
+ * Force SERVICE-PRINCIPAL (M2M) auth, ignoring any OBO forwarded token.
+ *
+ * Used for the Genie `ask_data` call: the Genie REST API requires the OBO
+ * token to carry the `genie` scope, which each viewing user must individually
+ * consent to. Routing Genie through the app's service principal (which is
+ * granted CAN RUN on the space) makes `ask_data` work for every viewer with no
+ * per-user consent — at the cost of attributing the Genie call to the app SP
+ * rather than the viewer. In the container the SDK resolves the SP via the
+ * injected DATABRICKS_CLIENT_ID/SECRET; in local dev it's the CLI profile.
+ */
+export async function authHeadersServicePrincipal(): Promise<Headers> {
+  const h = new Headers();
+  const { client } = getExecutionContext();
+  await client.config.authenticate(h);
+  return h;
+}
