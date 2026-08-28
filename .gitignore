@@ -2,3 +2,5 @@ submission2.zip
 submission3.zip
 .venv/
 .superpowers/
+__pycache__/
+*.pyc
