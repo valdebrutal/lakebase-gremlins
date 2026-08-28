@@ -5,7 +5,43 @@
   "model": "gpt-5.6-sol",
   "requester": "carlos.montes@databricks.com",
   "calls": [
-    {"session_id": "01a04713-f1df-75e2-9983-869b969d5130", "prompt": "In one short sentence, what is a Unity AI Gateway guardrail?", "tokens_used": 15023, "routed_through_gateway": true},
-    {"session_id": "01a04719-d05e-77e2-a0a2-31209fa206d9", "prompt": "Use the slack MCP to search Slack for custom all-data guardrail instructions...", "tokens_used": 26525, "routed_through_gateway": true, "mcp": "system.ai.slack via /ai-gateway/mcp-services/system.ai.slack"}
+    {
+      "session_id": "01a04713-f1df-75e2-9983-869b969d5130",
+      "prompt": "In one short sentence, what is a Unity AI Gateway guardrail?",
+      "tokens_used": 15023,
+      "routed_through_gateway": true
+    },
+    {
+      "session_id": "01a04719-d05e-77e2-a0a2-31209fa206d9",
+      "prompt": "Use the slack MCP to search Slack for custom all-data guardrail instructions...",
+      "tokens_used": 26525,
+      "routed_through_gateway": true,
+      "mcp": "system.ai.slack via /ai-gateway/mcp-services/system.ai.slack"
+    }
+  ],
+  "governed_mcp_calls": [
+    {
+      "note": "The governed Slack MCP was USED (not just configured): an MCP tools/call issued through the Unity AI Gateway MCP endpoint returned live Slack results.",
+      "mcp_endpoint": "https://fevm-perma-vm.cloud.databricks.com/ai-gateway/mcp-services/system.ai.slack",
+      "transport": "MCP streamable HTTP (initialize -> tools/list -> tools/call), Bearer OAUTH_TOKEN",
+      "tools_available": [
+        "slack_search_public_and_private",
+        "slack_search_channels",
+        "slack_search_users",
+        "slack_read_channel",
+        "slack_read_thread",
+        "slack_read_canvas",
+        "slack_read_user_profile"
+      ],
+      "tool_call": {
+        "method": "tools/call",
+        "name": "slack_search_public_and_private",
+        "arguments": {
+          "query": "Unity AI Gateway custom guardrail block all data guard_block_all_data"
+        }
+      },
+      "result_ok": true,
+      "result_snippet": "{\"results\":\"# Search Results for: Unity AI Gateway custom guardrail block all data guard_block_all_data\\n\\n## Messages (20 results)\\n### Result 1 of 20\\nChannel: #fins-ai-challenge-team-cool (ID: C0BT6DQMJAE)\\nFrom: Kateryna Savchyn <kateryna.savchyn@databricks.com> (ID: U07B4UUAKJ4) \\nTime: 2026-08-28 01:02:39 EEST\\nMessage_ts: 1787868159.121629\\nPermalink: [link](https:\\/\\/databricks.enterprise.slack.com\\/archives\\/C0BT6DQMJAE\\/p1787868159121629?thread_ts=1787849345.301679&cid=C0BT6DQMJAE)\\nTe"
+    }
   ]
 }
