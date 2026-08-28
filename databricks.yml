@@ -119,8 +119,15 @@ resources:
               - faker
 
 targets:
+  # No development mode: resources are NOT prefixed with [dev <user>].
   dev:
-    mode: development
     default: true
   prod:
     mode: production
+  # Fresh Azure workspace — full self-contained deploy target.
+  sandbox:
+    workspace:
+      host: https://adb-7405605253712899.19.azuredatabricks.net
+    variables:
+      catalog: otto_demo
+      warehouse_id: 2851116f4d37c9d2
