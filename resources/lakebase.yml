@@ -32,8 +32,19 @@ resources:
       source_branch: projects/northpeak/branches/production
       ttl: "604800s"
 
-  # Scale-to-zero dev endpoint (0.5–1 CU, suspend 300s).
+  # Scale-to-zero endpoints (suspend 300s). NB: the project auto-creates the
+  # production `primary` endpoint with a 86400s (24h!) suspend timeout by
+  # default — adopt+update it here so a fresh deploy pins 5-min scale-to-zero
+  # (otherwise it idles at 1 CU for a full day before suspending = real cost).
   postgres_endpoints:
+    production_primary:
+      endpoint_id: primary
+      parent: projects/northpeak/branches/production
+      endpoint_type: ENDPOINT_TYPE_READ_WRITE
+      replace_existing: true
+      autoscaling_limit_min_cu: 1
+      autoscaling_limit_max_cu: 1
+      suspend_timeout_duration: "300s"
     dev_otto_primary:
       endpoint_id: primary
       parent: projects/northpeak/branches/dev-otto
