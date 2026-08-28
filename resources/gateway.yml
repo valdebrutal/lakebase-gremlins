@@ -1,0 +1,51 @@
+# AI Gateway (Build 3) — governed serving endpoint over a Databricks-hosted FM,
+# self-contained on sandbox (no external_model, no cross-workspace, no secret).
+resources:
+  schemas:
+    gateway_schema:
+      catalog_name: ${var.catalog}
+      name: northpeak_gateway
+      comment: "Holds the AI Gateway inference table (auto-captured LLM calls)."
+
+  model_serving_endpoints:
+    northpeak_ai_gateway:
+      name: northpeak-ai-gateway
+      config:
+        served_entities:
+          - name: gpt-governed
+            entity_name: system.ai.gpt-oss-120b
+            entity_version: "1"            # from Step 1
+            min_provisioned_throughput: 0  # 0 → scale-to-zero
+            max_provisioned_throughput: 9500  # from Step 1 supported range
+      ai_gateway:
+        inference_table_config:
+          enabled: true
+          catalog_name: ${var.catalog}
+          schema_name: northpeak_gateway
+          table_name_prefix: app_gw
+        usage_tracking_config:
+          enabled: true
+        guardrails:
+          input:
+            pii:
+              behavior: BLOCK
+        rate_limits:
+          - calls: 100
+            renewal_period: minute
+            key: endpoint
+
+  jobs:
+    gateway_setup:
+      name: "[NorthPeak] AI Gateway — guardrail function"
+      description: "Creates the guard_block_all_data UC function in otto_demo.northpeak_gateway."
+      tasks:
+        - task_key: create_guardrail
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              # Paths in resources/*.yml resolve relative to THIS file's dir
+              # (resources/), not the bundle root — verified in Task 5. So use
+              # ../ to reach the repo-root gateway/ dir. VERIFY after writing:
+              # `databricks bundle validate -t sandbox -o json` must show this
+              # path resolving under `…/files/gateway/sandbox_guardrail.sql`.
+              path: ../gateway/sandbox_guardrail.sql
