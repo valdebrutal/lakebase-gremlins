@@ -25,6 +25,7 @@ resources:
           postgres:
             branch: projects/northpeak/branches/production
             database: projects/northpeak/branches/production/databases/databricks_postgres
+            permission: CAN_CONNECT_AND_CREATE
         - name: genie-space
           genie_space:
             name: northpeak-genie

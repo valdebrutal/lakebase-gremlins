@@ -225,8 +225,17 @@ databricks apps get northpeak-store-ops --profile otto-sandbox -o json
 # 3. Test the AI Gateway guardrail:
 #    - Send a normal prompt via the agent chat UI
 #      → should succeed; a row appears in otto_demo.northpeak_gateway.app_gw_*
-#    - Send a PII or "read all data" prompt
-#      → gateway should block it
+#    - Send a prompt containing PII (e.g. a Social Security Number or email address)
+#      → the PII guardrail on the endpoint (ai_gateway.guardrails.input.pii_detection)
+#         is active via the bundle and WILL block it
+#    - Send a "read all data" prompt (e.g. "list all customers")
+#      → NOTE: the custom UC function guard_block_all_data is created by the
+#         gateway_setup job (Step 8) as evidence/governance artefact, but it is
+#         NOT automatically wired into the serving endpoint by the bundle — the
+#         DAB has no field to attach a custom UC guardrail function to an endpoint.
+#         This means the "read all data" block is NOT active until the function is
+#         manually attached to the endpoint out-of-band. Do not expect this prompt
+#         to be blocked in a default post-deploy smoke test.
 ```
 
 ---

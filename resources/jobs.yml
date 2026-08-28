@@ -10,6 +10,11 @@ resources:
         - task_key: apply_migrations
           spark_python_task:
             python_file: ../lakebase/apply_migrations.py
+            parameters:
+              - "--project"
+              - "northpeak"
+              - "--user"
+              - "${workspace.current_user.userName}"
           environment_key: sdk_default
       environments:
         - environment_key: sdk_default

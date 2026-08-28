@@ -6,7 +6,7 @@ Tracks applied files in northpeak._migrations. Safe to re-run. Migration 002
 enabled on the project.
 """
 from __future__ import annotations
-import os, sys, pathlib, logging
+import os, sys, pathlib, logging, argparse
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("lakebase-migrate")
@@ -18,16 +18,11 @@ def pending_migrations(applied: set[str], all_files: list[str]) -> list[str]:
     return [f for f in sorted(all_files) if f not in applied]
 
 
-def _connect():
+def _connect(project: str, user: str, branch: str = "production",
+             endpoint: str = "primary", dbname: str = "databricks_postgres"):
     """Connect via psycopg using a freshly minted Lakebase OAuth token."""
     import psycopg
     from databricks.sdk import WorkspaceClient
-
-    project = os.environ["LAKEBASE_PROJECT_ID"]
-    branch = os.environ.get("LAKEBASE_BRANCH_ID", "production")
-    endpoint = os.environ.get("LAKEBASE_ENDPOINT_ID", "primary")
-    user = os.environ["PGUSER"]
-    dbname = os.environ.get("PGDATABASE", "databricks_postgres")
 
     w = WorkspaceClient()
     ep_path = f"projects/{project}/branches/{branch}/endpoints/{endpoint}"
@@ -77,8 +72,53 @@ def apply(conn, filename: str) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Apply Lakebase migrations idempotently."
+    )
+    parser.add_argument(
+        "--project",
+        default=os.environ.get("LAKEBASE_PROJECT_ID"),
+        help="Lakebase project ID (env: LAKEBASE_PROJECT_ID)",
+    )
+    parser.add_argument(
+        "--user",
+        default=os.environ.get("PGUSER"),
+        help="Postgres user (env: PGUSER)",
+    )
+    parser.add_argument(
+        "--branch",
+        default=os.environ.get("LAKEBASE_BRANCH_ID", "production"),
+        help="Lakebase branch ID (env: LAKEBASE_BRANCH_ID, default: production)",
+    )
+    parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("LAKEBASE_ENDPOINT_ID", "primary"),
+        help="Lakebase endpoint ID (env: LAKEBASE_ENDPOINT_ID, default: primary)",
+    )
+    parser.add_argument(
+        "--database",
+        default=os.environ.get("PGDATABASE", "databricks_postgres"),
+        help="Postgres database name (env: PGDATABASE, default: databricks_postgres)",
+    )
+    args = parser.parse_args()
+
+    if not args.project:
+        raise SystemExit(
+            "ERROR: --project / LAKEBASE_PROJECT_ID is required but was not provided."
+        )
+    if not args.user:
+        raise SystemExit(
+            "ERROR: --user / PGUSER is required but was not provided."
+        )
+
     all_files = [p.name for p in MIG_DIR.glob("*.sql")]
-    conn = _connect()
+    conn = _connect(
+        project=args.project,
+        user=args.user,
+        branch=args.branch,
+        endpoint=args.endpoint,
+        dbname=args.database,
+    )
     try:
         applied = _ensure_tracking(conn)
         todo = pending_migrations(applied, all_files)
