@@ -87,7 +87,7 @@ git commit -m "feat(dab): add sandbox target (Azure), drop development-mode pref
 
 **Interfaces:**
 - Consumes: `var.catalog`, `var.schema` (from Task 1 / existing vars).
-- Produces: `resources.postgres_projects.northpeak`, `resources.postgres_databases.production_db`, `resources.postgres_catalogs.northpeak_uc`, `resources.postgres_roles.app_sp` + `.dev_user`, and the re-pointed `postgres_branches.dev_otto` / `postgres_endpoints.dev_otto_primary` / `postgres_synced_tables.open_shortfalls_sync`. Project path `projects/northpeak`.
+- Produces: `resources.postgres_projects.northpeak`, `resources.postgres_databases.production_db`, `resources.postgres_catalogs.northpeak_uc`, `resources.postgres_roles.dev_user` (developer only — the app SP role is NOT declared here; preflight ruling, granted post-deploy in Task 10), and the re-pointed `postgres_branches.dev_otto` / `postgres_endpoints.dev_otto_primary` / `postgres_synced_tables.open_shortfalls_sync`. Project path `projects/northpeak`.
 
 - [ ] **Step 1: Confirm the API shapes before writing**
 
@@ -126,15 +126,14 @@ resources:
         database: databricks_postgres
         branch: projects/northpeak/branches/production
 
-  # Roles: the app service principal (least privilege) + the developer.
+  # Role: the developer (DATABRICKS_SUPERUSER). The APP service-principal role
+  # is intentionally NOT declared here — it would need
+  # ${resources.apps.northpeak_app.service_principal_client_id}, a forward
+  # reference to Task 7 that breaks this task's `bundle validate` gate
+  # (preflight ruling). The app SP gets CAN_CONNECT_AND_CREATE via its postgres
+  # binding (Task 7); its Postgres role + schema grants are created post-deploy
+  # via CLI/SQL in the runbook (Task 10) once the SP client id exists.
   postgres_roles:
-    app_sp:
-      parent: projects/northpeak/branches/production
-      role_id: ${resources.apps.northpeak_app.service_principal_client_id}
-      spec:
-        identity_type: SERVICE_PRINCIPAL
-        postgres_role: ${resources.apps.northpeak_app.service_principal_client_id}
-        auth_method: LAKEBASE_OAUTH_V1
     dev_user:
       parent: projects/northpeak/branches/production
       role_id: otto.jaaskelainen@databricks.com
@@ -581,7 +580,7 @@ git commit -m "feat(gateway): AI Gateway as DAB resources (PT endpoint + inferen
 
 **Interfaces:**
 - Consumes: `var.warehouse_id`; `resources.genie_spaces.northpeak_genie.id`; `resources.postgres_databases.production_db` (branch/database paths); `resources.model_serving_endpoints.northpeak_ai_gateway` (Task 6).
-- Produces: `resources.apps.northpeak_app` with bindings named `sql-warehouse`, `postgres`, `genie-space`, `agent-gateway` (names MUST match `app.yaml` `valueFrom` / usage); exposes `service_principal_client_id` (used by Task 2's `app_sp` role).
+- Produces: `resources.apps.northpeak_app` with bindings named `sql-warehouse`, `postgres`, `genie-space`, `agent-gateway` (names MUST match `app.yaml` `valueFrom` / usage). Its `service_principal_client_id` is used post-deploy (Task 10 runbook) to grant the SP its Postgres role — NOT referenced by another bundle resource (avoids a cross-task cycle).
 
 - [ ] **Step 1: Write `resources/app.yml`**
 
@@ -625,11 +624,13 @@ resources:
 Run: `databricks bundle validate -t sandbox --profile otto-sandbox`
 Expected: PASS; `northpeak-store-ops` app appears with 4 resource bindings (incl. `agent-gateway`).
 
-- [ ] **Step 3: Verify no circular-reference error**
+- [ ] **Step 3: Verify no unresolved-reference error**
 
-Note: Task 2's `app_sp` role references `${resources.apps.northpeak_app.service_principal_client_id}`, and this app does not reference the role — so there is no cycle. If validate reports an unresolved reference for `service_principal_client_id` (SP not known until app is created), fall back to granting the `app_sp` role via SQL in the runbook instead of as a `postgres_roles` resource. Record which path was taken.
-Run: `databricks bundle validate -t sandbox --profile otto-sandbox 2>&1 | grep -i "cycle\|circular\|service_principal" || echo "no ref errors"`
-Expected: `no ref errors` (or a clear message → apply the fallback).
+Per the preflight ruling, no bundle resource references the app's
+`service_principal_client_id` (Task 2 does not declare an `app_sp` role), so
+there is no cross-task cycle. Confirm validate is clean.
+Run: `databricks bundle validate -t sandbox --profile otto-sandbox 2>&1 | grep -i "cycle\|circular\|unresolved\|service_principal" || echo "no ref errors"`
+Expected: `no ref errors`.
 
 - [ ] **Step 4: Commit**
 
@@ -790,6 +791,17 @@ Document the exact user-gated order (verbatim commands):
      → If a postgres_* resource is rejected: correct its fields against
        `databricks postgres create-<x> -h` and redeploy (Beta shapes).
      → The gateway endpoint (provisioned throughput) can take several minutes.
+3b. Grant the app service principal its Postgres role (preflight ruling — the
+     app_sp role is not a bundle resource). Get the SP client id:
+       SP=$(databricks apps get northpeak-store-ops --profile otto-sandbox -o json | python3 -c "import json,sys;print(json.load(sys.stdin)['service_principal_client_id'])")
+     Create its Postgres role on the production branch:
+       databricks postgres create-role projects/northpeak/branches/production \
+         --role-id "$SP" \
+         --json "{\"spec\": {\"identity_type\": \"SERVICE_PRINCIPAL\", \"postgres_role\": \"$SP\", \"auth_method\": \"LAKEBASE_OAUTH_V1\"}}" \
+         --profile otto-sandbox
+     (Schema grants for northpeak.*/public are handled by the app's own boot
+     migration + the CAN_CONNECT_AND_CREATE binding; grant SELECT on synced
+     public tables to "$SP" via SQL if the app needs to read them.)
 4. databricks bundle run northpeak_setup -t sandbox --profile otto-sandbox
 5. databricks bundle run northpeak_operations -t sandbox --profile otto-sandbox
 6. Enable per-project Search Beta on project `northpeak` (UI: project →
@@ -807,7 +819,7 @@ Document the exact user-gated order (verbatim commands):
        a row should land in otto_demo.northpeak_gateway.app_gw_*), then a
        PII / "read all data" prompt (gateway blocks it).
 ```
-Also record: the `service_principal_client_id` role path taken in Task 7 Step 3, the backing-model / PT decision from Task 6 Step 1, and the `bundle destroy` warning (never destroy — `otto_demo` is external, but the Lakebase project, gateway endpoint + app would be removed).
+Also record: the app-SP Postgres-role grant (step 3b, per preflight ruling), the backing-model / PT decision from Task 6 Step 1, and the `bundle destroy` warning (never destroy — `otto_demo` is external, but the Lakebase project, gateway endpoint + app would be removed).
 
 - [ ] **Step 4: Commit**
 
