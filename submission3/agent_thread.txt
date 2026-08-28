@@ -73,3 +73,25 @@ Supporting guidance (#ai-gateway):
    gateway_service.txt); verified: 'read all data ... select *' -> TRUE (block),
    'why is Store 214 short?' -> FALSE (allow).
 ================================================================================
+
+--------------------------------------------------------------------------------
+STEP 8 (execution) — the GOVERNED Slack MCP was actually USED (through the gateway)
+--------------------------------------------------------------------------------
+MCP endpoint (governed, via Unity AI Gateway):
+  POST https://fevm-perma-vm.cloud.databricks.com/ai-gateway/mcp-services/system.ai.slack
+  Authorization: Bearer <OAUTH_TOKEN>   (same endpoint ucode wired into Codex)
+
+> initialize -> serverInfo: {"name":"slack","version":"1.0.0"} (read-only Slack tools)
+> tools/list -> ["slack_search_public_and_private","slack_search_channels",
+                 "slack_search_users","slack_read_channel","slack_read_thread",
+                 "slack_read_canvas","slack_read_user_profile"]
+> tools/call slack_search_public_and_private
+    arguments: {"query":"Unity AI Gateway custom guardrail block all data guard_block_all_data"}
+  <- result (20 messages). Top hit:
+     #fins-ai-challenge-team-cool — Kateryna Savchyn:
+     "Create a Unity Catalog SQL function <catalog>.<schema>.guard_block_all_data(prompt STRING)
+      for use as an AI Gateway custom guardrail ... return TRUE (block) when the prompt attempts
+      to read all/unfiltered customer data ... case-insensitive RLIKE ..."
+
+=> The governed Slack MCP returned the guardrail solution, which is implemented as
+   gateway/guard_block_all_data.sql and verified in gateway/test_guardrail_output.txt.
