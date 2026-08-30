@@ -110,7 +110,10 @@ section documents what actually works, in order.
 3. **Account-level "Unity AI Gateway" beta** enabled (account console → **Previews**) —
    required to attach guardrails / inference table to the model service.
 4. **Per-project Lakebase Search** enabled on the Postgres project — required for the
-   `002_search` migration (BM25 / ANN indexes); without it, `002` skips gracefully.
+   `002_search` migration to install the `lakebase_text` (BM25) + `lakebase_vector`
+   (ANN) extensions, and for the hybrid BM25 + ANN indexes migration `003` builds on
+   `public.gold_products`; without it, `002`/`003` skip gracefully and retry on a
+   later run.
 
 The bundle ships a `sandbox` target (Azure workspace) that overrides `workspace.host`,
 `var.catalog`, and `var.warehouse_id`. Point `-t <target>` at yours.
@@ -155,11 +158,15 @@ databricks bundle run northpeak_operations  -t $T --profile $PROFILE
 #    Run governance/mv_store_position.sql against your catalog.schema via the SQL
 #    Statement Execution API (aitools strips the YAML whitespace — use the API).
 
-# 5. In-DB migrations + guardrail function (jobs)
-#    001 creates the app.* schema (writable tables); 002 adds BM25/ANN full-text
-#    search indexes (needs the per-project Search beta); 003 builds BM25+ANN
-#    indexes on public.gold_products (synced table) — run AFTER step 3b below.
-databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # 001 schema; 002 search; 003 gold_products indexes
+# 5. In-DB migrations (FIRST run) + guardrail function (jobs)
+#    lakebase_migrate applies 001 (northpeak.* writable schema) + 002 (installs
+#    the lakebase_text + lakebase_vector extensions — MUST run BEFORE the
+#    products synced table is created in step 7, because that table has a
+#    vector(1024) column). 003 (BM25 + ANN indexes on public.gold_products)
+#    cleanly SKIPS here because the gold_products synced table isn't synced
+#    yet — it is applied by the re-run in step 8b. The runner records a
+#    migration only on success, so 003 re-applies cleanly then.
+databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # applies 001 + 002; 003 skips (gold_products not synced yet)
 databricks bundle run gateway_setup    -t $T --profile $PROFILE   # guard_block_all_data UC function
 
 # 6. AI Gateway model service + app-SP EXECUTE grant (script)
@@ -177,6 +184,13 @@ databricks bundle deploy -t $T --profile $PROFILE
 #    SP needs SELECT on each. gateway/grant_synced_tables.sh applies the grants.
 SP=$(databricks apps get northpeak-store-ops --profile $PROFILE -o json | python3 -c "import json,sys;print(json.load(sys.stdin)['service_principal_client_id'])")
 SP_CLIENT_ID=$SP DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/grant_synced_tables.sh
+
+# 8b. In-DB migrations (SECOND run) — build the product search indexes now that
+#     the synced tables from step 7 are ONLINE. 001 + 002 are already recorded
+#     (no-op); this run applies 003, building the BM25 + ANN indexes on
+#     public.gold_products. 003 is idempotent (CREATE INDEX IF NOT EXISTS) and
+#     is only recorded on success, so it applies cleanly on this re-run.
+databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # applies 003 (gold_products BM25 + ANN indexes)
 
 # 9. Start the app + wire the two non-bindable IDs
 databricks bundle run northpeak_app -t $T --profile $PROFILE      # deploy+start the app
@@ -203,10 +217,15 @@ These tables are owned by the platform (`databricks_writer`) — Drizzle migrati
 as `store_id \|\| ':' \|\| product_id` because the synced tables have no `id` column.
 
 **Product search** runs a hybrid BM25 + ANN (cosine) over `public.gold_products`,
-fused via Reciprocal Rank Fusion (RRF). BM25 and ANN indexes are built by Lakebase
-migration `003_gold_products_search.sql` (run via `bundle run lakebase_migrate` after
-the synced tables exist). The app degrades gracefully to BM25-only when the embedding
-call fails.
+fused via Reciprocal Rank Fusion (RRF). The `lakebase_text` (BM25) and
+`lakebase_vector` (ANN + pgvector `vector` type) extensions are installed by
+migration `002_search.sql` (which must run before the `gold_products` synced
+table is created — it has a `vector(1024)` embedding column); the BM25 and ANN
+indexes themselves are built by migration `003_search_indexes.sql`. Because 003
+can only succeed after `gold_products` is synced, `lakebase_migrate` is run
+**twice** — once early (applies 001 + 002; 003 skips), and again after the
+synced tables are online (applies 003). See the deploy sequence, steps 5 and 8b.
+The app degrades gracefully to BM25-only when the embedding call fails.
 
 **Genie and the dashboard** still read Unity Catalog directly (Delta tables in
 `otto_demo.northpeak_retail.*`) — they are unaffected by the Lakebase changes.

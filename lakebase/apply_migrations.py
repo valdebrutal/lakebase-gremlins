@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Apply lakebase/migrations/*.sql idempotently against the Lakebase project.
 
-Tracks applied files in northpeak._migrations. Safe to re-run. Migration 002
-(search) degrades to a logged skip if the Search Beta extensions are not yet
-enabled on the project.
+Tracks applied files in northpeak._migrations. Safe to re-run. The search
+migrations (002 extensions, 003 product indexes) degrade to a logged,
+retry-next-run skip ONLY for genuine "not ready" causes — the Search Beta
+extensions not yet enabled, or 003's source synced table (public.gold_products)
+not yet synced — keyed off SQLSTATE. Any other error fails loud.
 """
 from __future__ import annotations
 import os, sys, pathlib, logging, argparse
@@ -66,8 +68,11 @@ def _ensure_tracking(conn) -> set[str]:
 def apply(conn, mig_dir: pathlib.Path, filename: str) -> None:
     """Apply one migration file in its own transaction.
 
-    002 and 003 skip gracefully when the Lakebase Search/vector extensions are
-    not yet enabled on the project (lakebase_text, lakebase_vector, vector).
+    002 and 003 skip gracefully — retry-next-run — ONLY for the genuine
+    "not ready yet" cases: the Lakebase Search/vector extensions aren't enabled
+    yet (002), or 003's source synced table (public.gold_products) hasn't been
+    synced yet. Those are identified by SQLSTATE (see _RETRY_NEXT_RUN_SQLSTATES).
+    ANY other error RAISES (fail loud) so real bugs aren't masked.
     """
     import psycopg
     sql = (mig_dir / filename).read_text()
@@ -82,11 +87,36 @@ def apply(conn, mig_dir: pathlib.Path, filename: str) -> None:
         log.info("applied %s", filename)
     except psycopg.errors.Error as e:
         conn.rollback()
-        if filename.startswith("002") or filename.startswith("003"):
-            log.warning("SKIPPED %s (search extensions not available): %s",
-                        filename, e)
+        # Retry-next-run only for the search migrations AND only when the cause
+        # is a genuine "not ready" condition (missing extension / undefined
+        # object or table / feature-not-supported / undefined file). NOT
+        # recorded, so a later run re-applies it. Everything else is a real bug
+        # → re-raise.
+        is_search = filename.startswith("002") or filename.startswith("003")
+        sqlstate = getattr(e, "sqlstate", None)
+        retryable = (
+            sqlstate in _RETRY_NEXT_RUN_SQLSTATES
+            # class 42 = syntax_error_or_access_rule_violation (covers other
+            # undefined_* variants); class 0A = feature_not_supported.
+            or (sqlstate is not None and sqlstate[:2] in ("42", "0A"))
+        )
+        if is_search and retryable:
+            log.warning(
+                "SKIPPED %s (sqlstate=%s) — cause may be a missing search "
+                "extension OR a not-yet-synced source table; will retry on a "
+                "later run: %s",
+                filename, sqlstate, e,
+            )
             return
         raise
+
+
+# SQLSTATE codes that mean "the search migration can't apply YET" — retry next
+# run rather than fail. 42704 undefined_object (extension/type not installed),
+# 42P01 undefined_table (source synced table not synced yet), 58P01
+# undefined_file, 0A000 feature_not_supported. Broader class-42/0A membership
+# is also treated as retryable in apply() above.
+_RETRY_NEXT_RUN_SQLSTATES = frozenset({"42704", "42P01", "58P01", "0A000"})
 
 
 def main() -> int:

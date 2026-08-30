@@ -135,8 +135,9 @@ function makeTools(ctx: AgentContext): Tool[] {
 
   // ── find_shortfall — TRAINEE BUILDS (Build 2 · Assist). STUB. ─────────────
   // TODO — BUILD 2 (trainee): implement this. Read the open shortfall for
-  // {store_id, product_id} (or the worst one) from Lakebase app.open_shortfalls
-  // + app.store_sku_position: on_hand, recent velocity, weeks_of_supply,
+  // {store_id, product_id} (or the worst one) from the synced Lakebase tables
+  // public.gold_open_shortfalls + public.gold_store_sku_position: on_hand,
+  // recent velocity, weeks_of_supply,
   // lost-sales exposure, AND the nearest surplus store + its on-hand + distance.
   // Helper queries are READY in server/db/queries/stores.ts: `getShortfall`,
   // `worstShortfall`, `getPosition`. See APP_WORKSHOP.md → "Layer 2 — Assist".
@@ -187,7 +188,8 @@ function makeTools(ctx: AgentContext): Tool[] {
   });
 
   // ── rank_recovery_moves — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
-  // TODO — BUILD 2 (trainee): implement this. Read app.recovery_recommendations
+  // TODO — BUILD 2 (trainee): implement this. Read the synced Lakebase table
+  // public.gold_recovery_recommendations
   // for {store_id, product_id} and return the model's recommended_move,
   // predicted_recaptured_usd, predicted_net_value_usd, and the full move_ranking
   // (all three options with predicted recaptured $ + net $ + cost). This is the
@@ -198,7 +200,7 @@ function makeTools(ctx: AgentContext): Tool[] {
   const rankRecoveryMoves = tool({
     name: 'rank_recovery_moves',
     description:
-      "Read the ML recovery model's ranked moves for a store×SKU from Lakebase app.recovery_recommendations: the recommended move, its predicted recaptured $ + net value, and the full ranking of all three options (transfer / expedite / substitute) with each option's units, cost, predicted recaptured $ and net $. Read-only. Quote these in the draft; do the what-if arithmetically from the ranking.",
+      "Read the ML recovery model's ranked moves for a store×SKU from the synced Lakebase table public.gold_recovery_recommendations: the recommended move, its predicted recaptured $ + net value, and the full ranking of all three options (transfer / expedite / substitute) with each option's units, cost, predicted recaptured $ and net $. Read-only. Quote these in the draft; do the what-if arithmetically from the ranking.",
     parameters: z.object({
       store_id: z.string().describe('Store id, e.g. STORE-0214.'),
       product_id: z.string().describe('SKU, e.g. SKU-APP-04412.'),
@@ -232,8 +234,9 @@ function makeTools(ctx: AgentContext): Tool[] {
       ),
   });
 
-  // ── search_products — Lakebase Search (Build 2c). Full-text product search
-  // over app.products; used when ranking the SUBSTITUTE recovery option.
+  // ── search_products — Lakebase hybrid search (Build 2c). Hybrid BM25 + ANN
+  // product search over the synced public.gold_products table; used when
+  // ranking the SUBSTITUTE recovery option.
   const searchProductsTool = tool({
     name: 'search_products',
     description:

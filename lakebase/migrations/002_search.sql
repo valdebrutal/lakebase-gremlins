@@ -1,12 +1,16 @@
--- 002_search.sql — enable Lakebase Search (BM25). Requires per-project Search
--- Beta enablement; the runner skips this file cleanly if the extension is
--- absent.
+-- 002_search.sql — enable Lakebase Search for HYBRID product search
+-- (BM25 keyword + ANN vector). Requires per-project Search Beta enablement;
+-- the runner (apply_migrations.py) skips this file cleanly if the extensions
+-- are not yet available.
 --
--- We install ONLY lakebase_text (the `lakebase_bm25` index type for BM25
--- keyword search). The actual searchable table + BM25 index are built on a
--- SYNCED gold table (see resources/lakebase.yml), not here — a synced table
--- carries governed lakehouse data + a generated tsvector, and the BM25 index is
--- built post-sync. The earlier hand-created northpeak.inventory_notes scaffold
--- (with lakebase_bm25 + lakebase_ann on a toy vector(8)) was unused by the app
--- and has been removed; lakebase_vector/ANN is not installed (BM25-only).
-CREATE EXTENSION IF NOT EXISTS lakebase_text;
+-- These installs MUST run BEFORE the products synced table is created: that
+-- table (resources/lakebase.yml, products_sync) carries a `vector(1024)`
+-- embedding column via a type_override, which needs the pgvector `vector` type
+-- that lakebase_vector pulls in. Migration 003 then builds a `lakebase_bm25`
+-- keyword index AND a `lakebase_ann` vector index on public.gold_products —
+-- both extensions are required for that hybrid design.
+--
+-- Both statements are idempotent (IF NOT EXISTS) and ordered — text first,
+-- then vector.
+CREATE EXTENSION IF NOT EXISTS lakebase_text;            -- BM25 (lakebase_bm25)
+CREATE EXTENSION IF NOT EXISTS lakebase_vector CASCADE;  -- ANN (lakebase_ann) + pulls in pgvector `vector` type for the products embedding column
