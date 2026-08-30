@@ -169,7 +169,8 @@ export async function listPositions(
 
   const result = await db.execute(sql`
     SELECT
-      p.id, p.store_id, p.store_name, p.region, p.climate_zone, p.city,
+      p.store_id || ':' || p.product_id AS id,
+      p.store_id, p.store_name, p.region, p.climate_zone, p.city,
       p.store_lat, p.store_lng, p.product_id, p.product_name, p.category,
       p.seasonality, p.on_hand_units, p.on_order_units, p.recent_units_7d,
       p.avg_daily_velocity, p.weeks_of_supply, p.price_usd,
@@ -179,8 +180,8 @@ export async function listPositions(
       rr.predicted_recaptured_usd,
       la.move_type AS live_move_type,
       la.status AS action_status
-    FROM app.store_sku_position p
-    LEFT JOIN app.recovery_recommendations rr
+    FROM public.gold_store_sku_position p
+    LEFT JOIN public.gold_recovery_recommendations rr
       ON rr.store_id = p.store_id AND rr.product_id = p.product_id
     LEFT JOIN LATERAL (
       SELECT a.move_type, a.status
@@ -203,7 +204,8 @@ export async function getPosition(
 ): Promise<PositionRow | null> {
   const result = await db.execute(sql`
     SELECT
-      p.id, p.store_id, p.store_name, p.region, p.climate_zone, p.city,
+      p.store_id || ':' || p.product_id AS id,
+      p.store_id, p.store_name, p.region, p.climate_zone, p.city,
       p.store_lat, p.store_lng, p.product_id, p.product_name, p.category,
       p.seasonality, p.on_hand_units, p.on_order_units, p.recent_units_7d,
       p.avg_daily_velocity, p.weeks_of_supply, p.price_usd,
@@ -213,8 +215,8 @@ export async function getPosition(
       rr.predicted_recaptured_usd,
       la.move_type AS live_move_type,
       la.status AS action_status
-    FROM app.store_sku_position p
-    LEFT JOIN app.recovery_recommendations rr
+    FROM public.gold_store_sku_position p
+    LEFT JOIN public.gold_recovery_recommendations rr
       ON rr.store_id = p.store_id AND rr.product_id = p.product_id
     LEFT JOIN LATERAL (
       SELECT a.move_type, a.status
@@ -224,7 +226,7 @@ export async function getPosition(
       ORDER BY a.created_at DESC
       LIMIT 1
     ) la ON true
-    WHERE p.id = ${id}
+    WHERE p.store_id || ':' || p.product_id = ${id}
     LIMIT 1
   `);
   const row = result.rows[0] as PositionSqlRow | undefined;
@@ -255,7 +257,7 @@ export async function getShortfall(
     SELECT store_id, product_id, on_hand_units, avg_daily_velocity,
            lost_sales_exposure_usd, nearest_surplus_store_id,
            nearest_surplus_on_hand, nearest_surplus_distance_km
-    FROM app.open_shortfalls
+    FROM public.gold_open_shortfalls
     WHERE store_id = ${storeId} AND product_id = ${productId}
     LIMIT 1
   `);
@@ -295,7 +297,7 @@ export async function worstShortfall(db: AppDb): Promise<Shortfall | null> {
     SELECT store_id, product_id, on_hand_units, avg_daily_velocity,
            lost_sales_exposure_usd, nearest_surplus_store_id,
            nearest_surplus_on_hand, nearest_surplus_distance_km
-    FROM app.open_shortfalls
+    FROM public.gold_open_shortfalls
     ORDER BY lost_sales_exposure_usd DESC NULLS LAST
     LIMIT 1
   `);
@@ -350,7 +352,7 @@ export async function getRecommendation(
     SELECT store_id, product_id, recommended_move, recommended_source_store_id,
            recommended_substitute_product_id, recommended_units,
            predicted_recaptured_usd, predicted_net_value_usd, move_ranking
-    FROM app.recovery_recommendations
+    FROM public.gold_recovery_recommendations
     WHERE store_id = ${storeId} AND product_id = ${productId}
     LIMIT 1
   `);
@@ -364,7 +366,9 @@ export async function getRecommendation(
         recommended_units: number | null;
         predicted_recaptured_usd: number | string | null;
         predicted_net_value_usd: number | string | null;
-        move_ranking: MoveOption[] | null;
+        // In the synced Gold table `move_ranking` is TEXT (a JSON string),
+        // not jsonb, so it arrives as a string from the driver — parse it.
+        move_ranking: string | MoveOption[] | null;
       }
     | undefined;
   if (!r) return null;
@@ -377,8 +381,23 @@ export async function getRecommendation(
     recommendedUnits: r.recommended_units === null ? null : Number(r.recommended_units),
     predictedRecapturedUsd: num(r.predicted_recaptured_usd),
     predictedNetValueUsd: num(r.predicted_net_value_usd),
-    moveRanking: Array.isArray(r.move_ranking) ? r.move_ranking : [],
+    moveRanking: parseMoveRanking(r.move_ranking),
   };
+}
+
+/** `move_ranking` in `public.gold_recovery_recommendations` is a TEXT column
+ *  holding a JSON array, so the driver returns it verbatim as a string. Parse
+ *  defensively — a null/malformed ranking just becomes []. (Tolerates an
+ *  already-parsed array too, in case the column type ever changes back.) */
+function parseMoveRanking(raw: string | MoveOption[] | null): MoveOption[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as MoveOption[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 // ============================================================================
@@ -569,10 +588,9 @@ export async function logWorkflowEvent(
 // Lakebase Hybrid Search (Task 6): BM25 + ANN over public.gold_products,
 // fused with Reciprocal Rank Fusion (RRF).
 //
-// `ensureProductsIndex` is kept for backward-compat (the legacy FTS catalog
-// it builds is still present on the DB; removing it here would cause a tsc
-// error since it is exported and called from the setup route).
-// `searchProducts` now queries the SYNCED public.gold_products table.
+// `searchProducts` queries the SYNCED public.gold_products table directly
+// (BM25 + ANN indexes built in Task 2), so there is no longer any derived
+// `app.products` catalog to build at boot.
 // ============================================================================
 
 export type ProductMatch = {
@@ -633,63 +651,6 @@ async function embedQuery(host: string, query: string): Promise<number[]> {
   }
   const json = (await resp.json()) as { data: Array<{ embedding: number[] }> };
   return json.data[0].embedding;
-}
-
-/** Build/refresh app.products (product catalog + tsvector FTS index) from the
- *  synced position mirror. Idempotent; returns the row count.
- *  Kept for backward-compat — the legacy catalog is no longer queried by
- *  searchProducts (which now uses public.gold_products directly), but the
- *  setup route still calls this to materialise the table on first boot. */
-export async function ensureProductsIndex(db: AppDb): Promise<number> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS app.products (
-      product_id text PRIMARY KEY,
-      product_name text,
-      category text,
-      seasonality text,
-      price_usd double precision,
-      description text,
-      search_tsv tsvector
-    )
-  `);
-  await db.execute(sql`
-    INSERT INTO app.products
-      (product_id, product_name, category, seasonality, price_usd, description)
-    SELECT DISTINCT ON (product_id)
-      product_id, product_name, category, seasonality, price_usd,
-      concat_ws(' ',
-        product_name, category, seasonality,
-        CASE
-          WHEN lower(coalesce(seasonality, '')) LIKE '%winter%'
-            OR lower(coalesce(category, '')) LIKE '%outerwear%'
-            OR lower(coalesce(product_name, '')) LIKE '%parka%'
-            OR lower(coalesce(product_name, '')) LIKE '%jacket%'
-            OR lower(coalesce(product_name, '')) LIKE '%fleece%'
-            OR lower(coalesce(product_name, '')) LIKE '%hoodie%'
-            OR lower(coalesce(product_name, '')) LIKE '%coat%'
-          THEN 'warm insulated cold-weather layer for winter warmth'
-          ELSE 'apparel'
-        END
-      )
-    FROM app.store_sku_position
-    WHERE product_id IS NOT NULL
-    ON CONFLICT (product_id) DO UPDATE SET
-      product_name = EXCLUDED.product_name,
-      category = EXCLUDED.category,
-      seasonality = EXCLUDED.seasonality,
-      price_usd = EXCLUDED.price_usd,
-      description = EXCLUDED.description
-  `);
-  await db.execute(sql`
-    UPDATE app.products
-    SET search_tsv =
-      to_tsvector('english', coalesce(product_name, '') || ' ' || coalesce(description, ''))
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS products_search_idx ON app.products USING GIN (search_tsv)
-  `);
-  const c = await db.execute(sql`SELECT count(*)::int AS n FROM app.products`);
-  return (c.rows[0] as { n: number }).n;
 }
 
 /**
@@ -833,7 +794,7 @@ export async function positionSummary(db: AppDb): Promise<PositionSummary> {
       COUNT(*) FILTER (
         WHERE p.position_status IN ('stockout','at_risk') AND a.store_id IS NOT NULL
       )::int AS recoveries_in_progress
-    FROM app.store_sku_position p
+    FROM public.gold_store_sku_position p
     LEFT JOIN acted a
       ON a.store_id = p.store_id AND a.product_id = p.product_id
   `);
@@ -915,7 +876,7 @@ export async function storeBreakdown(
           ELSE 3
         END
       ) AS worst_rank
-    FROM app.store_sku_position p
+    FROM public.gold_store_sku_position p
     WHERE p.store_lat IS NOT NULL AND p.store_lng IS NOT NULL
       ${whereStatusGroup} ${whereZone}
     GROUP BY p.store_id
@@ -1024,4 +985,24 @@ export async function recentActivity(
     predicted_recaptured_usd: num(r.predicted_recaptured_usd),
     notes: r.notes,
   }));
+}
+
+// ============================================================================
+// Reset demo — writable tables ONLY.
+//
+// Relocated from the retired db/sync.ts `wipeMirroredTables`. The read-only
+// synced Gold mirrors (public.gold_*) are NOT touched here: they are owned by
+// the Lakebase sync pipeline and refresh via `Sync now`, not app SQL —
+// truncating them would just trigger a re-sync. This truncates only the
+// tables the app itself writes, so between demos the backlog looks untouched:
+// all agent writes are wiped and exposure/shortfalls return to full.
+// ============================================================================
+export async function resetDemoTables(db: AppDb): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`TRUNCATE TABLE app.feedback RESTART IDENTITY CASCADE`);
+    await tx.execute(sql`TRUNCATE TABLE app.messages RESTART IDENTITY CASCADE`);
+    await tx.execute(sql`TRUNCATE TABLE app.conversations RESTART IDENTITY CASCADE`);
+    // The writable action table — the only place agent writes land.
+    await tx.execute(sql`TRUNCATE TABLE app.ops_actions RESTART IDENTITY CASCADE`);
+  });
 }

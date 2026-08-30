@@ -1,26 +1,23 @@
 import type { Application } from 'express';
-import { syncFromDelta, wipeMirroredTables } from '../db/sync.js';
+import { resetDemoTables } from '../db/queries/stores.js';
 import type { AppDb } from '../db/index.js';
 
 /**
- * Demo-only admin routes. /api/admin/reset truncates the app's writable
- * table (ops_actions) + chat state, then re-syncs the read-only mirrors
- * from Delta — click it between demos to start clean. All agent writes are
- * wiped: shortfalls return to stockout/at_risk, exposure returns to full.
+ * Demo-only admin routes. /api/admin/reset truncates the app's WRITABLE
+ * tables (ops_actions + chat state) — click it between demos to start clean.
+ * All agent writes are wiped: shortfalls return to stockout/at_risk, exposure
+ * returns to full.
+ *
+ * The read-only synced Gold tables (public.gold_*) are NOT touched: they are
+ * owned by the Lakebase sync pipeline and refresh via `Sync now`, not app SQL.
  */
-
-type DataConfig = Parameters<typeof syncFromDelta>[1];
-
 export function registerAdminRoutes(
   app: Application,
-  deps: { db: AppDb; data: DataConfig | undefined },
+  deps: { db: AppDb },
 ): void {
-  const { db, data } = deps;
+  const { db } = deps;
   app.post('/api/admin/reset', async (_req, res) => {
-    await wipeMirroredTables(db);
-    if (data) {
-      await syncFromDelta(db, data, { forceIfAnyEmpty: true });
-    }
+    await resetDemoTables(db);
     res.json({ ok: true });
   });
 }

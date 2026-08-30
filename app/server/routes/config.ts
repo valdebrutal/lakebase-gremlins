@@ -24,11 +24,9 @@ type Deps = {
     mlModelName?: string;
     pdfVolumePath?: string;
     data?: {
+      // /api/resources only reads catalog + schema (for the UC deep-links).
       catalog: string;
       schema: string;
-      // Table names are domain-specific; /api/resources only reads
-      // catalog + schema, so the shape here is intentionally loose.
-      tables: Record<string, string | undefined>;
     };
     branding: { appName: string };
     assistantScript?: Array<{

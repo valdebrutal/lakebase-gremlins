@@ -14,19 +14,12 @@ import {
 /**
  * Lakebase schema, under `app.*` — NorthPeak Store Ops.
  *
- * Three groups (this is the Build-1 answer key: synced READ-ONLY mirrors +
- * ONE writable operational table):
+ * Two groups managed HERE (writable, app-owned):
  *   1. Chat state      (conversations, messages, feedback) — REUSE AS-IS.
  *                      Every use case has chat. The `thinking` + `error`
  *                      jsonb/text columns on `messages` make conversations
  *                      reload-safe with full reasoning trails preserved.
- *   2. Synced mirror   (store_sku_position, open_shortfalls,
- *                      recovery_recommendations) — READ-ONLY copies of the
- *                      Gold Delta tables that `db/sync.ts` pulls at boot.
- *                      In production these are Lakebase Synced Tables (the
- *                      manual sync is the demo stand-in). The app SELECTs
- *                      from them for sub-ms per-store reads; never writes.
- *   3. Write-surface   `ops_actions` — the ONLY table the app writes. A
+ *   2. Write-surface   `ops_actions` — the ONLY table the app writes. A
  *                      UC synced table is read-only in Postgres, so the
  *                      Act layer records approved transfers / markdown
  *                      holds here. Append-only `audit_trail` JSONB makes
@@ -122,110 +115,16 @@ export const feedback = appSchema.table(
 );
 
 // ============================================================================
-// Synced read-only mirror (from Delta — NorthPeak Gold tables)
+// Read-only synced Gold tables (Lakebase Synced Tables) — NOT MANAGED HERE.
 //
-// These mirror `gold_store_sku_position`, `gold_open_shortfalls`, and
-// `gold_recovery_recommendations`. In Build-1 terms they're UC synced
-// tables — read-only from the app. `db/sync.ts` pulls them at boot; the
-// app SELECTs from them and never writes them.
+// `public.gold_store_sku_position`, `public.gold_open_shortfalls`, and
+// `public.gold_recovery_recommendations` are managed by the Lakebase sync
+// pipeline (owner: `databricks_writer`), NOT by Drizzle. The app reads them
+// via RAW SQL (`sql\`… FROM public.gold_*\``) in db/queries/stores.ts and
+// synthesizes the composite `id` (`store_id || ':' || product_id`) in the
+// SELECT — those tables have no `id` column. They are intentionally ABSENT
+// from this Drizzle schema so migrations never try to create/alter/drop them.
 // ============================================================================
-
-// `gold_store_sku_position` — one row per store×SKU. The Operations map +
-// queue read this (filtered to the affected SKUs / open shortfalls). PK is
-// the composite (store_id, product_id); we mirror it as a synthetic `id`
-// `${store}:${product}` for the drizzle PK + the queue's row key.
-export const storeSkuPosition = appSchema.table(
-  'store_sku_position',
-  {
-    // Synthetic `${storeId}:${productId}`.
-    id: text('id').primaryKey(),
-    storeId: text('store_id').notNull(),
-    storeName: text('store_name'),
-    region: text('region'),
-    climateZone: text('climate_zone'),
-    city: text('city'),
-    // Store coordinates — drive the Operations store map. DOUBLE PRECISION.
-    storeLat: doublePrecision('store_lat'),
-    storeLng: doublePrecision('store_lng'),
-    productId: text('product_id').notNull(),
-    productName: text('product_name'),
-    category: text('category'),
-    subcategory: text('subcategory'),
-    seasonality: text('seasonality'),
-    onHandUnits: integer('on_hand_units'),
-    onOrderUnits: integer('on_order_units'),
-    recentUnits7d: integer('recent_units_7d'),
-    recentNetSales7d: doublePrecision('recent_net_sales_7d'),
-    avgDailyVelocity: doublePrecision('avg_daily_velocity'),
-    weeksOfSupply: doublePrecision('weeks_of_supply'),
-    priceUsd: doublePrecision('price_usd'),
-    // 0–1 from `ai_classify` in SDP — markdown risk on overstock rows.
-    markdownRiskScore: doublePrecision('markdown_risk_score'),
-    lostSalesExposureUsd: doublePrecision('lost_sales_exposure_usd'),
-    markdownExposureUsd: doublePrecision('markdown_exposure_usd'),
-    // 'stockout' | 'at_risk' | 'overstock' | 'healthy' — the UI colors the
-    // map + badges by this.
-    positionStatus: text('position_status', {
-      enum: ['stockout', 'at_risk', 'overstock', 'healthy'],
-    })
-      .notNull()
-      .default('healthy'),
-  },
-  (t) => [
-    index('position_store_idx').on(t.storeId),
-    index('position_status_idx').on(t.positionStatus),
-    index('position_product_idx').on(t.productId),
-  ],
-);
-
-// `gold_open_shortfalls` — the shortfall + its nearest surplus store. PK
-// is the composite (store_id, product_id); mirrored as synthetic `id`.
-export const openShortfalls = appSchema.table(
-  'open_shortfalls',
-  {
-    id: text('id').primaryKey(), // `${storeId}:${productId}`
-    storeId: text('store_id').notNull(),
-    productId: text('product_id').notNull(),
-    onHandUnits: integer('on_hand_units'),
-    avgDailyVelocity: doublePrecision('avg_daily_velocity'),
-    lostSalesExposureUsd: doublePrecision('lost_sales_exposure_usd'),
-    nearestSurplusStoreId: text('nearest_surplus_store_id'),
-    nearestSurplusOnHand: integer('nearest_surplus_on_hand'),
-    nearestSurplusDistanceKm: doublePrecision('nearest_surplus_distance_km'),
-  },
-  (t) => [index('shortfall_store_idx').on(t.storeId)],
-);
-
-// Read-only mirror of the ML model's batch predictions table
-// (`{catalog}.{schema}.gold_recovery_recommendations`, written by the ML
-// notebook in spec `03-ml-recovery.md`). The app never calls the model
-// directly — the agent's `rank_recovery_moves` tool reads from this table.
-// `moveRanking` (JSONB) holds all three options with predicted recaptured $
-// + net $ + cost, powering the ranked-options list + the arithmetic what-if.
-//
-// NOTE: the trainee BUILDS this table (it's the ML step of the workshop),
-// so sync.ts tolerates it not existing yet — the mirror is simply empty
-// until they produce it.
-export const recoveryRecommendations = appSchema.table(
-  'recovery_recommendations',
-  {
-    id: text('id').primaryKey(), // `${storeId}:${productId}`
-    storeId: text('store_id').notNull(),
-    productId: text('product_id').notNull(),
-    recommendedMove: text('recommended_move', {
-      enum: ['transfer', 'expedite', 'substitute', 'markdown_hold'],
-    }),
-    recommendedSourceStoreId: text('recommended_source_store_id'),
-    recommendedSubstituteProductId: text('recommended_substitute_product_id'),
-    recommendedUnits: integer('recommended_units'),
-    predictedRecapturedUsd: doublePrecision('predicted_recaptured_usd'),
-    predictedNetValueUsd: doublePrecision('predicted_net_value_usd'),
-    // All three options with predicted recaptured $ + net $ + cost.
-    moveRanking: jsonb('move_ranking').$type<MoveOption[]>().notNull().default([]),
-    scoredAt: timestamp('scored_at', { withTimezone: true }),
-  },
-  (t) => [index('recovery_store_idx').on(t.storeId)],
-);
 
 // ============================================================================
 // Writable operational table (the app writes here — Build-1 writable table)

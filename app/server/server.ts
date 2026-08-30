@@ -9,8 +9,8 @@
  *        - lakebase()   → Postgres pool backed by Databricks Lakebase
  *        - analytics()  → SQL-warehouse-backed typed queries (AnalyticsView)
  *   3. Run Drizzle migrations against Lakebase (safe-to-re-run on boot).
- *   4. One-shot sync of Delta tables into the Lakebase mirror (`syncFromDelta`)
- *      so the app has an OLTP-friendly local copy of the read-only lakehouse.
+ *   4. (Read-only data needs no boot step — it is served from the Lakebase
+ *      synced Gold tables `public.gold_*`, managed by the sync pipeline.)
  *   5. Get-or-create the MLflow experiment that will hold agent traces, then
  *      `mlflow.init(...)` so `@openai/agents` runs are recorded automatically.
  *   6. Register the Express routes (config, chat, domain CRUD, admin).
@@ -23,12 +23,10 @@
  *
  *   • `config/app.json`              — branding, agent endpoint name OR
  *                                       Genie space ID, MLflow experiment
- *                                       path, dashboard id, Delta source
- *                                       tables, scripted demo prompts.
+ *                                       path, dashboard id, catalog/schema,
+ *                                       scripted demo prompts.
  *   • `db/schema.ts`                 — Lakebase OLTP tables (the writable
- *                                       mirror the agent + UI both use).
- *   • `db/sync.ts`                   — one-shot copy from Delta → Lakebase
- *                                       at boot. Update the table list.
+ *                                       tables the agent + UI both use).
  *   • `db/queries/returns.ts`        — domain queries; rename + rewrite.
  *   • `agent/refundops.ts`           — the agent itself. Rename the file
  *                                       to match your domain, update the
@@ -72,9 +70,8 @@ import * as mlflow from 'mlflow-tracing';
 
 import { createDb } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
-import { syncFromDelta } from './db/sync.js';
 import { sql } from 'drizzle-orm';
-import { ensureProductsIndex, logWorkflowEvent } from './db/queries/stores.js';
+import { logWorkflowEvent } from './db/queries/stores.js';
 import type { AppDb } from './db/index.js';
 import { ensureMlflowExperiment } from './lib/mlflow.js';
 
@@ -145,17 +142,13 @@ type AppConfig = {
     prompt: string;
     triggerAfter?: string[];
   }>;
+  /** catalog/schema for the analytics charts + the UC deep-links on
+   *  /api/resources. (The boot-time Delta sync + its `tables` list were
+   *  retired — read-only data is now served from the `public.gold_*`
+   *  Lakebase synced tables.) */
   data?: {
     catalog: string;
     schema: string;
-    tables: {
-      storeSkuPosition: string;
-      openShortfalls: string;
-      // Optional — the ML recovery-recommendations table. The TRAINEE builds
-      // it (Build 2 ML step), so db/sync.ts tolerates it being absent.
-      // Mirrors tablesSchema below; keep the two in sync.
-      recoveryRecommendations?: string;
-    };
   };
 };
 
@@ -168,14 +161,6 @@ type AppConfig = {
 // are documentation and pass through unread. Unknown extra keys are
 // allowed (`.passthrough()`-equivalent — we only assert the required shape).
 // ─────────────────────────────────────────────────────────────────────────
-
-const tablesSchema = z.object({
-  storeSkuPosition: z.string().min(1),
-  openShortfalls: z.string().min(1),
-  // Optional — the ML recovery-recommendations table. The trainee builds it
-  // (Build 2 ML step); empty/omitted until then. db/sync.ts tolerates it.
-  recoveryRecommendations: z.string().optional(),
-});
 
 const appConfigSchema = z
   .object({
@@ -206,13 +191,11 @@ const appConfigSchema = z
       .object({
         // NOT `.min(1)`: in local-dev / preview mode DEMO_CATALOG/DEMO_SCHEMA
         // may be unset, so the `${DEMO_CATALOG}` placeholders resolve to "".
-        // We must BOOT (degraded) rather than crash — the Delta→Lakebase sync
-        // already no-ops when DATABRICKS_WAREHOUSE_ID is unset (db/sync.ts),
-        // which is the same condition, so empty catalog/schema never reaches
-        // a query. Deployed mode always has all three set together.
+        // We must BOOT (degraded) rather than crash — catalog/schema only feed
+        // the analytics charts + UC deep-links, which tolerate empty values.
+        // Deployed mode always has both set together.
         catalog: z.string(),
         schema: z.string(),
-        tables: tablesSchema,
       })
       .optional(),
   });
@@ -499,7 +482,7 @@ await createApp({
   });
   registerStoreRoutes(app, { db });
   registerActivityRoutes(app, { db });
-  registerAdminRoutes(app, { db, data: appConfig.data });
+  registerAdminRoutes(app, { db });
 
   // Analytics charts — custom route that substitutes catalog/schema into the
   // SQL (the AppKit analytics plugin can't template identifiers). Served at
@@ -609,13 +592,13 @@ async function scoreViewAndLog(db: AppDb, source: 'schedule' | 'system'): Promis
     const top = await db.execute(sql`
       SELECT store_id, product_id, store_name, city,
              ROUND(COALESCE(lost_sales_exposure_usd, 0)::numeric, 2)::float8 AS lost_sales_exposure_usd
-      FROM app.store_sku_position
+      FROM public.gold_store_sku_position
       WHERE position_status IN ('stockout', 'at_risk')
       ORDER BY lost_sales_exposure_usd DESC NULLS LAST
       LIMIT 5
     `);
     const cnt = await db.execute(sql`
-      SELECT count(*)::int AS n FROM app.store_sku_position
+      SELECT count(*)::int AS n FROM public.gold_store_sku_position
       WHERE position_status IN ('stockout', 'at_risk')
     `);
     const rows = top.rows as Array<{ store_id: string; product_id: string }>;
@@ -649,16 +632,13 @@ migrationsReady = (async () => {
   try {
     await runMigrations(db);
     console.log(`[boot +${ms()}] Migrations up to date`);
-    if (appConfig.data) {
-      await syncFromDelta(db, appConfig.data);
-      console.log(`[boot +${ms()}] Delta sync done`);
-      const nProducts = await ensureProductsIndex(db);
-      console.log(`[boot +${ms()}] Lakebase product search index ready (${nProducts} products)`);
-      // Initial system scoring of the live view (a system update — the
-      // trigger, not a person opening the page), then a recurring schedule.
-      await scoreViewAndLog(db, 'system');
-      startScheduledScorer(db);
-    }
+    // Read-only data is served from the Lakebase synced Gold tables
+    // (public.gold_*) — no boot-time Delta sync and no derived product index.
+    // The synced tables + BM25/ANN indexes are managed by the sync pipeline.
+    // Initial system scoring of the live view (a system update — the trigger,
+    // not a person opening the page), then a recurring schedule.
+    await scoreViewAndLog(db, 'system');
+    startScheduledScorer(db);
     migrationsDone = true;
   } catch (e) {
     // Real bug — the LLM customizing the template needs to act on this.
