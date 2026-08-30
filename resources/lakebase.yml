@@ -56,8 +56,21 @@ resources:
       autoscaling_limit_max_cu: 1
       suspend_timeout_duration: "300s"
 
-  # SNAPSHOT sync: UC gold_open_shortfalls → Postgres public.gold_open_shortfalls.
+  # SNAPSHOT syncs: all 4 UC gold tables → Postgres public schema.
   postgres_synced_tables:
+    store_position_sync:
+      synced_table_id: northpeak_lakebase.public.gold_store_sku_position
+      source_table_full_name: ${var.catalog}.${var.schema}.gold_store_sku_position
+      primary_key_columns:
+        - store_id
+        - product_id
+      scheduling_policy: SNAPSHOT
+      branch: projects/northpeak/branches/production
+      postgres_database: databricks_postgres
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${var.catalog}
+        storage_schema: ${var.schema}
     open_shortfalls_sync:
       synced_table_id: northpeak_lakebase.public.gold_open_shortfalls
       source_table_full_name: ${var.catalog}.${var.schema}.gold_open_shortfalls
@@ -71,3 +84,32 @@ resources:
       new_pipeline_spec:
         storage_catalog: ${var.catalog}
         storage_schema: ${var.schema}
+    recovery_recommendations_sync:
+      synced_table_id: northpeak_lakebase.public.gold_recovery_recommendations
+      source_table_full_name: ${var.catalog}.${var.schema}.gold_recovery_recommendations
+      primary_key_columns:
+        - store_id
+        - product_id
+      scheduling_policy: SNAPSHOT
+      branch: projects/northpeak/branches/production
+      postgres_database: databricks_postgres
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${var.catalog}
+        storage_schema: ${var.schema}
+    products_sync:
+      synced_table_id: northpeak_lakebase.public.gold_products
+      source_table_full_name: ${var.catalog}.${var.schema}.gold_products
+      primary_key_columns:
+        - product_id
+      scheduling_policy: SNAPSHOT
+      branch: projects/northpeak/branches/production
+      postgres_database: databricks_postgres
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${var.catalog}
+        storage_schema: ${var.schema}
+      type_overrides:
+        - column_name: embedding
+          pg_type: PG_SPECIFIC_TYPE_VECTOR
+          size: 1024

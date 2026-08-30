@@ -4,6 +4,11 @@ AS
 WITH current_snapshot AS (
   SELECT * FROM silver_inventory
   WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM silver_inventory)
+  -- Deduplicate to exactly one row per (store_id, product_id): silver_inventory
+  -- can have multiple rows per position at the latest snapshot; take the row with
+  -- the highest on_hand_units (deterministic pick matching app's onConflictDoNothing
+  -- behavior which always kept the first-inserted row for a given store×product).
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY store_id, product_id ORDER BY on_hand_units DESC) = 1
 ),
 recent_sales AS (
   SELECT store_id, product_id,
