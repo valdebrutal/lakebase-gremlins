@@ -64,7 +64,11 @@ def _ensure_tracking(conn) -> set[str]:
 
 
 def apply(conn, mig_dir: pathlib.Path, filename: str) -> None:
-    """Apply one migration file in its own transaction. 002 skips gracefully."""
+    """Apply one migration file in its own transaction.
+
+    002 and 003 skip gracefully when the Lakebase Search/vector extensions are
+    not yet enabled on the project (lakebase_text, lakebase_vector, vector).
+    """
     import psycopg
     sql = (mig_dir / filename).read_text()
     try:
@@ -78,7 +82,7 @@ def apply(conn, mig_dir: pathlib.Path, filename: str) -> None:
         log.info("applied %s", filename)
     except psycopg.errors.Error as e:
         conn.rollback()
-        if filename.startswith("002"):
+        if filename.startswith("002") or filename.startswith("003"):
             log.warning("SKIPPED %s (search extensions not available): %s",
                         filename, e)
             return
