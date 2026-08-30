@@ -1,22 +1,12 @@
--- 002_search.sql — hybrid search (BM25 + ANN). Requires per-project Search
--- Beta enablement; the runner skips this file cleanly if extensions are absent.
-CREATE EXTENSION IF NOT EXISTS vector;
+-- 002_search.sql — enable Lakebase Search (BM25). Requires per-project Search
+-- Beta enablement; the runner skips this file cleanly if the extension is
+-- absent.
+--
+-- We install ONLY lakebase_text (the `lakebase_bm25` index type for BM25
+-- keyword search). The actual searchable table + BM25 index are built on a
+-- SYNCED gold table (see resources/lakebase.yml), not here — a synced table
+-- carries governed lakehouse data + a generated tsvector, and the BM25 index is
+-- built post-sync. The earlier hand-created northpeak.inventory_notes scaffold
+-- (with lakebase_bm25 + lakebase_ann on a toy vector(8)) was unused by the app
+-- and has been removed; lakebase_vector/ANN is not installed (BM25-only).
 CREATE EXTENSION IF NOT EXISTS lakebase_text;
-CREATE EXTENSION IF NOT EXISTS lakebase_vector;
-
-CREATE TABLE IF NOT EXISTS northpeak.inventory_notes (
-    id                 SERIAL PRIMARY KEY,
-    store_id           TEXT,
-    product_name       TEXT,
-    region             TEXT,
-    on_hand_units      INTEGER,
-    merch_note         TEXT,
-    markdown_risk_score DOUBLE PRECISION,
-    search_ts          TSVECTOR,
-    embedding          VECTOR(8)
-);
-
-CREATE INDEX IF NOT EXISTS idx_inventory_notes_bm25
-    ON northpeak.inventory_notes USING lakebase_bm25 (search_ts tsvector_bm25_ops);
-CREATE INDEX IF NOT EXISTS idx_inventory_notes_ann
-    ON northpeak.inventory_notes USING lakebase_ann (embedding vector_cosine_ops);

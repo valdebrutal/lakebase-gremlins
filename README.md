@@ -156,7 +156,10 @@ databricks bundle run northpeak_operations  -t $T --profile $PROFILE
 #    Statement Execution API (aitools strips the YAML whitespace — use the API).
 
 # 5. In-DB migrations + guardrail function (jobs)
-databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # 001 schema; 002 search (needs the per-project Search beta)
+#    001 creates the app.* schema (writable tables); 002 adds BM25/ANN full-text
+#    search indexes (needs the per-project Search beta); 003 builds BM25+ANN
+#    indexes on public.gold_products (synced table) — run AFTER step 3b below.
+databricks bundle run lakebase_migrate -t $T --profile $PROFILE   # 001 schema; 002 search; 003 gold_products indexes
 databricks bundle run gateway_setup    -t $T --profile $PROFILE   # guard_block_all_data UC function
 
 # 6. AI Gateway model service + app-SP EXECUTE grant (script)
@@ -164,15 +167,58 @@ DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/setup_gateway.sh     # pass SP_CLIE
 
 # 7. PASS 2 — re-enable + deploy the data-dependent resources (uncomment the three
 #    from step 2), now that gold + Genie sources + the model service exist.
+#    This deploys the 4 managed synced tables (gold_store_sku_position,
+#    gold_open_shortfalls, gold_recovery_recommendations, gold_products) into
+#    databricks_postgres.public.gold_* — owned by the platform, not the app.
 databricks bundle deploy -t $T --profile $PROFILE
 
-# 8. Start the app + wire the two non-bindable IDs
-databricks bundle run northpeak_app -t $T --profile $PROFILE      # deploy+start the app
+# 8. Grant the app SP SELECT on the 4 synced gold tables (run once after deploy)
+#    The synced tables land in the public schema of the Lakebase project; the app
+#    SP needs SELECT on each. gateway/grant_synced_tables.sh applies the grants.
 SP=$(databricks apps get northpeak-store-ops --profile $PROFILE -o json | python3 -c "import json,sys;print(json.load(sys.stdin)['service_principal_client_id'])")
-SP_CLIENT_ID=$SP DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/setup_gateway.sh   # grant the app SP model-service EXECUTE + gold-schema USE/SELECT (needed for boot-sync)
+SP_CLIENT_ID=$SP DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/grant_synced_tables.sh
+
+# 9. Start the app + wire the two non-bindable IDs
+databricks bundle run northpeak_app -t $T --profile $PROFILE      # deploy+start the app
+SP_CLIENT_ID=$SP DATABRICKS_CONFIG_PROFILE=$PROFILE ./gateway/setup_gateway.sh   # grant app SP model-service EXECUTE
 DATABRICKS_CONFIG_PROFILE=$PROFILE ./app/scripts/finalize_sandbox.sh            # stamp DASHBOARD_ID/PIPELINE_ID + redeploy
 databricks bundle run northpeak_app -t $T --profile $PROFILE                    # restart to pick up stamped env
 ```
+
+### Data architecture: managed synced tables (replaces boot-sync)
+
+The app reads **four managed synced tables** that the platform keeps in sync from the
+gold Delta tables in Unity Catalog. There is no boot-time Delta sync; the app reads
+`public.gold_*` on every request.
+
+| Synced table (Lakebase `public.*`) | Source (UC Delta) | Used by |
+|-----------------------------------|-------------------|---------|
+| `gold_store_sku_position` | `otto_demo.northpeak_retail.gold_store_sku_position` | positions, shortfalls, map |
+| `gold_open_shortfalls` | `otto_demo.northpeak_retail.gold_open_shortfalls` | shortfall list, `find_shortfall` tool |
+| `gold_recovery_recommendations` | `otto_demo.northpeak_retail.gold_recovery_recommendations` | recovery moves, `rank_recovery_moves` tool |
+| `gold_products` | `otto_demo.northpeak_retail.gold_products` | hybrid product search |
+
+These tables are owned by the platform (`databricks_writer`) — Drizzle migrations
+**never** create, alter, or drop them. The `id` column is synthesized in every query
+as `store_id \|\| ':' \|\| product_id` because the synced tables have no `id` column.
+
+**Product search** runs a hybrid BM25 + ANN (cosine) over `public.gold_products`,
+fused via Reciprocal Rank Fusion (RRF). BM25 and ANN indexes are built by Lakebase
+migration `003_gold_products_search.sql` (run via `bundle run lakebase_migrate` after
+the synced tables exist). The app degrades gracefully to BM25-only when the embedding
+call fails.
+
+**Genie and the dashboard** still read Unity Catalog directly (Delta tables in
+`otto_demo.northpeak_retail.*`) — they are unaffected by the Lakebase changes.
+
+**SP grants.** The app service principal needs `SELECT` on the four synced tables in
+the Lakebase `public` schema. Run `gateway/grant_synced_tables.sh` once after the SP
+is created (step 8 of the deploy sequence).
+
+**Drizzle migration 0001** (`0001_omniscient_fallen_one.sql`) drops the three now-unused
+app-schema mirrors (`app.store_sku_position`, `app.open_shortfalls`,
+`app.recovery_recommendations`) that the old boot-sync populated. It runs automatically
+at app boot via `runMigrations()` and is a no-op once applied.
 
 ### Gotchas learned the hard way
 
@@ -182,11 +228,13 @@ databricks bundle run northpeak_app -t $T --profile $PROFILE                    
   module dist/server.js`; without `drizzle/` the DB init fails with `No Drizzle migrations
   folder found`. Run `npm run db:generate` (part of `build-app.sh`) so `app/drizzle/` exists
   locally before deploy.
-- **The app SP needs read on the gold schema.** Boot-sync (Delta→Lakebase) and analytics
-  run with the app service principal's OWN credentials — not a user OBO token — so the SP
-  needs `USE CATALOG` + `USE SCHEMA` + `SELECT` on the data schema. `gateway/setup_gateway.sh`
-  grants these (alongside the model-service EXECUTE) when passed `SP_CLIENT_ID`; without them
-  boot DB init fails with `User does not have USE SCHEMA on Schema '…northpeak_retail'`.
+- **The app SP needs SELECT on the synced gold tables.** Analytics queries (list positions,
+  shortfalls, recovery moves, product search) run with the app service principal's OWN
+  credentials — not a user OBO token. `gateway/grant_synced_tables.sh` grants `SELECT` on
+  all four `public.gold_*` tables; without this the app returns empty results or 403s.
+- **Synced-table `id` synthesis.** The `public.gold_*` tables have no `id` column — the app
+  synthesizes composite IDs (`store_id || ':' || product_id`) in every SELECT to match the
+  `StorePosition.id` shape expected by the client and the agent tools.
 - **Lakebase resource-name vs connection-name.** The database resource path is
   `…/databases/databricks-postgres` (hyphen); the Postgres connection name is
   `databricks_postgres` (underscore).
