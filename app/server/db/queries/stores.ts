@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { AppDb } from '../index.js';
 import type { AuditEntry, MoveOption } from '../schema.js';
+import { authHeadersServicePrincipal } from '../../lib/auth.js';
 
 export type { AuditEntry, MoveOption };
 
@@ -565,9 +566,13 @@ export async function logWorkflowEvent(
 }
 
 // ============================================================================
-// Lakebase Search (Build 2c): full-text product search over app.products.
-// `ensureProductsIndex` builds the FTS-indexed catalog from the synced
-// position mirror; `searchProducts` queries it with websearch_to_tsquery.
+// Lakebase Hybrid Search (Task 6): BM25 + ANN over public.gold_products,
+// fused with Reciprocal Rank Fusion (RRF).
+//
+// `ensureProductsIndex` is kept for backward-compat (the legacy FTS catalog
+// it builds is still present on the DB; removing it here would cause a tsc
+// error since it is exported and called from the setup route).
+// `searchProducts` now queries the SYNCED public.gold_products table.
 // ============================================================================
 
 export type ProductMatch = {
@@ -578,8 +583,63 @@ export type ProductMatch = {
   on_hand_units: number;
 };
 
+/**
+ * Pure Reciprocal Rank Fusion over two ranked lists.
+ *
+ * Each item's score = 1/(k + rank₁) + 1/(k + rank₂), where rank is 1-based
+ * (i.e. position index + 1). Items appearing in only one list contribute a
+ * single term. Ties are broken by product_id string (deterministic).
+ *
+ * @returns product_ids in descending RRF score order (highest first).
+ */
+export function rrfFuse(
+  listA: { product_id: string }[],
+  listB: { product_id: string }[],
+  k = 60,
+): string[] {
+  const scores = new Map<string, number>();
+  for (let i = 0; i < listA.length; i++) {
+    const id = listA[i].product_id;
+    scores.set(id, (scores.get(id) ?? 0) + 1 / (k + i + 1));
+  }
+  for (let i = 0; i < listB.length; i++) {
+    const id = listB[i].product_id;
+    scores.set(id, (scores.get(id) ?? 0) + 1 / (k + i + 1));
+  }
+  return [...scores.entries()]
+    .sort(([idA, sA], [idB, sB]) => {
+      if (sB !== sA) return sB - sA; // higher score first
+      return idA < idB ? -1 : 1; // deterministic tie-break by id
+    })
+    .map(([id]) => id);
+}
+
+/**
+ * Fetch a 1024-dim embedding for `query` from the `databricks-gte-large-en`
+ * endpoint using service-principal auth.
+ *
+ * Response shape (OpenAI-compatible):
+ *   { "data": [{ "index": 0, "object": "embedding", "embedding": [...1024] }] }
+ */
+async function embedQuery(host: string, query: string): Promise<number[]> {
+  const headers = await authHeadersServicePrincipal();
+  headers.set('Content-Type', 'application/json');
+  const resp = await fetch(
+    `${host}/serving-endpoints/databricks-gte-large-en/invocations`,
+    { method: 'POST', headers, body: JSON.stringify({ input: [query] }) },
+  );
+  if (!resp.ok) {
+    throw new Error(`embedding endpoint returned ${resp.status}: ${await resp.text()}`);
+  }
+  const json = (await resp.json()) as { data: Array<{ embedding: number[] }> };
+  return json.data[0].embedding;
+}
+
 /** Build/refresh app.products (product catalog + tsvector FTS index) from the
- *  synced position mirror. Idempotent; returns the row count. */
+ *  synced position mirror. Idempotent; returns the row count.
+ *  Kept for backward-compat — the legacy catalog is no longer queried by
+ *  searchProducts (which now uses public.gold_products directly), but the
+ *  setup route still calls this to materialise the table on first boot. */
 export async function ensureProductsIndex(db: AppDb): Promise<number> {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS app.products (
@@ -632,35 +692,106 @@ export async function ensureProductsIndex(db: AppDb): Promise<number> {
   return (c.rows[0] as { n: number }).n;
 }
 
-/** Hybrid-ready full-text search over the Lakebase product catalog. Ranks by
- *  ts_rank and joins the latest on-hand from the position mirror. */
+/**
+ * Hybrid BM25 + ANN product search over the synced public.gold_products table,
+ * fused with Reciprocal Rank Fusion (RRF).
+ *
+ * Steps:
+ *  1. Embed the query via databricks-gte-large-en (service-principal auth).
+ *  2. Run BM25 top-40 (gold_products_bm25 index, score < 0, ASC order).
+ *  3. Run ANN top-40 (gold_products_ann index, cosine distance ASC).
+ *  4. rrfFuse the two ranked lists → take top-10 ids.
+ *  5. Hydrate product details + on-hand from public.gold_store_sku_position.
+ *
+ * Graceful degradation: if the embedding call fails, falls back to BM25-only
+ * top-10 so search always works even when the endpoint is unavailable.
+ */
 export async function searchProducts(db: AppDb, query: string): Promise<ProductMatch[]> {
-  const res = await db.execute(sql`
-    SELECT p.product_id, p.product_name, p.category, p.price_usd,
-           COALESCE(MAX(s.on_hand_units), 0)::int AS on_hand_units,
-           ts_rank(p.search_tsv, websearch_to_tsquery('english', ${query})) AS rank
-    FROM app.products p
-    LEFT JOIN app.store_sku_position s ON s.product_id = p.product_id
-    WHERE p.search_tsv @@ websearch_to_tsquery('english', ${query})
-    GROUP BY p.product_id, p.product_name, p.category, p.price_usd, p.search_tsv
-    ORDER BY rank DESC
-    LIMIT 10
+  const host = (process.env.DATABRICKS_HOST ?? '').replace(/\/$/, '');
+
+  // ── 1. Embed the query (best-effort — failure → BM25-only) ────────────────
+  let embedding: number[] | null = null;
+  try {
+    embedding = await embedQuery(host, query);
+  } catch (err) {
+    console.warn('[searchProducts] embedding failed, degrading to BM25-only:', err);
+  }
+
+  // ── 2. BM25 leg (always runs) ─────────────────────────────────────────────
+  // Score is negative (more negative = more relevant); filter < 0, order ASC.
+  const bm25Res = await db.execute(sql`
+    WITH scored AS (
+      SELECT product_id,
+        to_tsvector('english', product_name || ' ' || coalesce(description, ''))
+          <@> to_bm25query(to_tsvector('english', ${query}), 'gold_products_bm25') AS score
+      FROM public.gold_products
+    )
+    SELECT product_id FROM scored
+    WHERE score < 0
+    ORDER BY score ASC
+    LIMIT 40
   `);
-  return (
-    res.rows as Array<{
-      product_id: string;
-      product_name: string | null;
-      category: string | null;
-      price_usd: number | string | null;
-      on_hand_units: number | string;
-    }>
-  ).map((r) => ({
-    product_id: r.product_id,
-    product_name: r.product_name,
-    category: r.category,
-    price_usd: num(r.price_usd),
-    on_hand_units: Number(r.on_hand_units),
-  }));
+  const bm25List = bm25Res.rows as Array<{ product_id: string }>;
+
+  // ── 3. Fuse BM25 + ANN (or BM25-only on embedding failure) ───────────────
+  let topIds: string[];
+  if (embedding !== null) {
+    const embStr = `[${embedding.join(',')}]`;
+    const annRes = await db.execute(sql`
+      SELECT product_id
+      FROM public.gold_products
+      ORDER BY embedding <=> ${embStr}::vector
+      LIMIT 40
+    `);
+    const annList = annRes.rows as Array<{ product_id: string }>;
+    topIds = rrfFuse(bm25List, annList).slice(0, 10);
+  } else {
+    topIds = bm25List.slice(0, 10).map((r) => r.product_id);
+  }
+
+  if (topIds.length === 0) return [];
+
+  // ── 4. Hydrate: fetch details + on-hand from synced tables ────────────────
+  const idSqls = topIds.map((id) => sql`${id}`);
+  const hydrated = await db.execute(sql`
+    SELECT
+      p.product_id,
+      p.product_name,
+      p.category,
+      p.price_usd,
+      COALESCE(MAX(s.on_hand_units), 0)::int AS on_hand_units
+    FROM public.gold_products p
+    LEFT JOIN public.gold_store_sku_position s ON s.product_id = p.product_id
+    WHERE p.product_id IN (${sql.join(idSqls, sql`, `)})
+    GROUP BY p.product_id, p.product_name, p.category, p.price_usd
+  `);
+
+  const byId = new Map(
+    (
+      hydrated.rows as Array<{
+        product_id: string;
+        product_name: string | null;
+        category: string | null;
+        price_usd: number | string | null;
+        on_hand_units: number | string;
+      }>
+    ).map((r) => [
+      r.product_id,
+      {
+        product_id: r.product_id,
+        product_name: r.product_name,
+        category: r.category,
+        price_usd: num(r.price_usd),
+        on_hand_units: Number(r.on_hand_units),
+      } satisfies ProductMatch,
+    ]),
+  );
+
+  // Return in fused rank order (drop any ids the DB didn't return).
+  return topIds.flatMap((id) => {
+    const r = byId.get(id);
+    return r !== undefined ? [r] : [];
+  });
 }
 
 // ============================================================================
