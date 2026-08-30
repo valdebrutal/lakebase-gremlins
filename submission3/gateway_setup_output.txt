@@ -1,0 +1,19 @@
+# Gateway setup — execution evidence (catalog + inference table created & live)
+Captured 2026-08-28T08:21:24Z against workspace fevm-perma-vm.
+
+## Endpoint's ai_gateway config is LIVE (inference table auto-capture enabled)
+```json
+{
+  "catalog_name": "perma_vm_catalog",
+  "enabled": true,
+  "schema_name": "northpeak_gateway",
+  "table_name_prefix": "app_gw"
+}
+```
+## Inference table exists and is POPULATED (auto-capture ran)
+```
+> SHOW TABLES IN perma_vm_catalog.northpeak_gateway
+   app_gw_payload
+> SELECT COUNT(*) FROM ...app_gw_payload
+   {'rows': '71'}
+```

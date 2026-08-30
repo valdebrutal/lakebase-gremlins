@@ -30,3 +30,9 @@ HONEST NOTES (this workspace's gateway capabilities)
 - Budget BLOCK = the enforced AI-Gateway rate-limit rejection (REQUEST_LIMIT_EXCEEDED),
   captured in the inference table. Dollar-denominated hard spend caps are the Enhanced UAIGW
   "spend cap" feature configured in the account console (per go/aigateway).
+
+- inference_table_evidence.md ... committed execution evidence: SHOW TABLES / DESCRIBE prove
+      the catalog+inference table exist (setup ran), and a live inference-table row shows the
+      GATEWAY blocking a runaway all-data read (finishReason=input_guardrail_triggered, HTTP 400).
+- agent_thread.txt now includes the governed Slack MCP being USED (tools/call -> result) via
+      /ai-gateway/mcp-services/system.ai.slack.

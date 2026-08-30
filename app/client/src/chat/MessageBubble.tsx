@@ -88,7 +88,7 @@ export function MessageBubble({
         {content ? (
           <>
             <div
-              className={`prose prose-sm prose-neutral max-w-none ${s.body} [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:leading-relaxed [&_table]:my-3 [&_th]:bg-muted [&_th]:font-semibold [&_code]:font-mono`}
+              className={`prose prose-sm prose-neutral max-w-none ${s.body} text-foreground [--tw-prose-body:var(--foreground)] [--tw-prose-headings:var(--foreground)] [--tw-prose-bold:var(--foreground)] [--tw-prose-code:var(--foreground)] [--tw-prose-quotes:var(--foreground)] [--tw-prose-bullets:var(--foreground)] [--tw-prose-counters:var(--foreground)] [--tw-prose-links:var(--primary)] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:leading-relaxed [&_table]:my-3 [&_th]:bg-muted [&_th]:font-semibold [&_code]:font-mono`}
             >
               {/* skipHtml: the agent's markdown output is not sanitized
                  server-side, and a prompt-injected response could include
