@@ -25,16 +25,6 @@ bundle:
 include:
   - resources/*.yml
 
-# Put the deployed materials in an obvious, browsable workspace folder instead
-# of the CLI default (~/.bundle/<name>/<target> — a hidden dotfolder). The
-# trainee reads README.md + specifications/ + data_generation/ here, so it must
-# NOT be buried. (The CLI still nests /files, /state, /artifacts under this
-# root — that layer isn't configurable — so the source lands under
-# <root_path>/files/.)
-workspace:
-  host: https://fevm-perma-vm.cloud.databricks.com
-  root_path: /Workspace/Users/${workspace.current_user.userName}/northpeak-retail-workshop
-
 # The app ships pre-built (dist/ + client/dist/ built locally by
 # scripts/build-app.sh) plus its generated Drizzle migrations (app/drizzle/,
 # produced by `npm run db:generate`). All three are gitignored, and DAB file

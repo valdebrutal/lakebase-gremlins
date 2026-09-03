@@ -165,5 +165,23 @@
         ]
       }
     ]
+  },
+  "benchmarks": {
+    "questions": [
+      {
+        "id": "40000000000000000000000000000001",
+        "question": ["What is our total lost-sales exposure and total markdown exposure across all stores right now?"],
+        "answer": [
+          {"format": "SQL", "content": ["SELECT\n", "  MEASURE(`lost_sales_exposure`) AS lost_sales_usd,\n", "  MEASURE(`markdown_exposure`) AS markdown_usd\n", "FROM otto_demo.northpeak_retail.mv_store_position"]}
+        ]
+      },
+      {
+        "id": "40000000000000000000000000000002",
+        "question": ["Broken down by recovery move, how many shortfalls are there and what is the total recapturable and net dollar value?"],
+        "answer": [
+          {"format": "SQL", "content": ["SELECT\n", "  recommended_move,\n", "  COUNT(*) AS shortfall_count,\n", "  SUM(predicted_recaptured_usd) AS total_recaptured_usd,\n", "  SUM(predicted_net_value_usd) AS total_net_value_usd\n", "FROM otto_demo.northpeak_retail.gold_recovery_recommendations\n", "GROUP BY recommended_move\n", "ORDER BY total_recaptured_usd DESC"]}
+        ]
+      }
+    ]
   }
 }
